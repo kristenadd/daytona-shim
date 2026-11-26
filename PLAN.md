@@ -126,7 +126,10 @@ daytona-shim/
      game opens by absolute path on a real PC.
    - Done when: a short note for each, with addresses, in `NOTES.md`.
 2. **Boot to attract** (2019): the launcher plus a shim with the shell link
-   and the network hooks, keyboard only. Done when attract runs for 10
+   and the network hooks, keyboard only. **Built, not yet run.** The first
+   build skips the launcher (the DLL goes beside `Daytona.exe`) and already
+   has the IO board, fed by XInput and the keyboard, since the Deck has no
+   keyboard at hand. Done when attract runs for 10
    minutes without the reboot request (that is, the challenge is answered).
 3. **Controls:** the IO board from SDL3, then the coin and free play. Done
    when an Xbox pad and the Deck's controls play a race, and with
