@@ -29,22 +29,22 @@ menu (it belongs to `Shell.exe`), and network play.
 | On the cabinet | What the game does | The shim |
 |---|---|---|
 | USB IO board | DirectInput 8: `0x5DEBA0` keeps a device only if its instance name is `SEGA IO Controller`; axes -1000..1000; `lX` steering, `lRx` gas, `lZ` brake; buttons through the profile at `0x116D490` | `dinput8.dll` proxy that reports one `SEGA IO Controller`, fed from SDL3 |
-| `Shell.exe` link | Connects to a loopback socket and speaks DYT packets: `'D' 'Y' 'T'`, id (2 bytes, big-endian), length (2), four zero bytes, payload | A thread in the DLL that answers as the shell (the recompilation's `ws_send` / `shell_inbox` in `src/recomp/win32.cpp`) |
+| `Shell.exe` link | TCP client to 127.0.0.1:18888 (`0x5847A0`), non-blocking, 500 ms timeouts; DYT packets: `'D' 'Y' 'T'`, id (2 bytes, big-endian), length (2), four zero bytes, payload | A thread in the DLL that listens on 127.0.0.1:18888 and answers as the shell (the recompilation's `ws_send` / `shell_inbox` in `src/recomp/win32.cpp`) |
 | Dongle and board unlock | Message `0x2A` every 10 s with a 4-byte challenge; after five unanswered it asks for a reboot and exits | Answer with `0x2E`, computed by `shell_answer` (`src/recomp/shell.cpp`, the exact inverse of the game's check at `0x584600`) |
 | Shell greeting | Waits for `0x2C` (`SHELL_MSG_SET_SKU`), which sets the ready byte at `+0x38` | Send `0x2C` once after the game's first packet |
 | Coin mech | `0x2D` `SHELL_MSG_SETCREDIT` carries the credit count (one byte) | Coin button: the count the game holds now plus one (2019 `0x15278F8 + 7`, `0xFF` before the first) |
 | Operator menu | Reads `ShellData/ShellData.ini` (`[Credit] Freeplay`, `[Audio]`, `[CalibrationData]`) and `GameSettings.ini` (2019) | The launcher writes them (an equivalent of `--shell-setting Section.Key=Value`) |
 | Cabinet network | 2019: `[Network] Enabled=0` skips it. 2017, as CabinetID 1, is the master: threads at `0x576AD0` connect to 192.168.1.2 .. .8:26000 | Hook `connect`: anything but loopback fails at once with `WSAECONNREFUSED` (on a PC these would otherwise wait for timeouts) |
-| Cabinet address check | `0x577622` accepts 127.0.0.1 | Hook `gethostname` / `gethostbyname` (and `GetAdaptersAddresses` if needed) so the game sees loopback |
+| Cabinet address check | `0x5775A0`: its own address; 127.0.0.1 means no cabinet network, anything else starts a master or slave by `[Network] CabinetID` | Hook `gethostbyname` so the game's own name resolves to 127.0.0.1 |
+| Link-play listener | `0x529E80` binds 192.168.1.<own octet>:27000; on a PC the bind fails and sets an error byte | Hook `bind`: 192.168.x.x becomes 127.0.0.1, same port |
+| Motion telemetry | UDP to 127.0.0.1:20777 (`0x541225`) | Nothing; SimHub and motion rigs can read it |
 | Force-feedback helper | `CreateProcessA` of `c:\sega\shell\InpWrapper.exe`; failure is handled | Nothing (let it fail), or hook it to fail cleanly |
-| TeknoParrot's frame gate | TeknoParrot patches `0x4DD697`, and a shell window message at `0x52958F` | To investigate (phase 1): what the gate waits for, and whether the shell link already opens it |
+| TeknoParrot's 2017 edits | `0x47D087` / `0x47D0E8` input, `0x4DD697` frame-update gate, `0x52958F` shell window message | None needed (NOTES.md section 2) |
 
 The DYT protocol, the challenge answer and the credit rules are all in
 `src/recomp/win32.cpp` and `src/recomp/shell.cpp`. They can be copied over,
-since it is the same author's code. Re-check each port and address against
-the binary: the recompilation never opened a real socket, so it recorded
-behaviour, not port numbers. `0x529EA6` builds a sockaddr with port 27000
-(`0x6978`), and `0x529EDC` binds 192.168.1.x:27000.
+since it is the same author's code. The ports and addresses above were
+checked in the disassembly in phase 1; [NOTES.md](NOTES.md) has the details.
 
 ### The controller layout (from `src/runtime/pad_mapping.cpp`)
 
@@ -110,8 +110,9 @@ daytona-shim/
 
 ## Phases
 
-1. **Investigation.** No code yet: disassembly of the original `Daytona.exe`,
-   both editions.
+1. **Investigation.** **Done** ([NOTES.md](NOTES.md)); the window, paths
+   and `InpWrapper.exe` are left for phase 2, on real Windows. No code yet:
+   disassembly of the original `Daytona.exe`, both editions.
    - The shell link's exact address and port, which side listens, and the
      order of the first packets.
    - What TeknoParrot's `0x4DD697` gate and the `0x52958F` window message do,
