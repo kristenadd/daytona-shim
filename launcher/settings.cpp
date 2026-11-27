@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -103,9 +104,11 @@ const std::vector<Rule>& rules() {
 
 const wchar_t* const kVolumeKeys[3] = {L"MusicVolume", L"SFXVolume", L"VoiceVolume"};
 
-Install Install::find() {
+Install Install::find() { return in_dir(exe_dir()); }
+
+Install Install::in_dir(const std::wstring& dir) {
     Install in;
-    in.dir = exe_dir();
+    in.dir = dir;
     in.game_exe = in.dir + L"\\Daytona.exe";
     // The 2017 folder's Daytona.exe is TeknoParrot's patched copy, with the
     // same timestamp; the shim restores it in memory.
@@ -116,6 +119,79 @@ Install Install::find() {
 }
 
 bool Install::has_game() const { return exists(game_exe); }
+bool Install::has_shim() const { return exists(dir + L"\\dinput8.dll"); }
+
+const char* Install::name() const {
+    switch (edition) {
+        case Edition::Nse2019: return "NEW SEASON EDITION";
+        case Edition::Dcu2017: return "2017 EDITION";
+        default: return "";
+    }
+}
+
+namespace {
+
+const wchar_t* edition_key(Edition e) { return e == Edition::Dcu2017 ? L"2017" : L"2019"; }
+
+std::wstring launcher_ini() { return exe_dir() + L"\\launcher.ini"; }
+
+// Daytona.exe files below `base`, `depth` folders deep at most.
+void search(const std::wstring& base, int depth, int& budget, std::vector<std::wstring>& found) {
+    if (depth < 0 || budget <= 0) return;
+    --budget;
+    if (exists(base + L"\\Daytona.exe")) found.push_back(base);
+    WIN32_FIND_DATAW fd;
+    HANDLE h = FindFirstFileW((base + L"\\*").c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do {
+        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || fd.cFileName[0] == L'.') continue;
+        search(base + L"\\" + fd.cFileName, depth - 1, budget, found);
+    } while (FindNextFileW(h, &fd) && budget > 0);
+    FindClose(h);
+}
+
+std::wstring parent(const std::wstring& dir) {
+    const std::size_t slash = dir.find_last_of(L'\\');
+    return slash == std::wstring::npos || slash < 3 ? dir : dir.substr(0, slash);
+}
+
+}  // namespace
+
+std::vector<Install> find_editions(const Install& here) {
+    std::vector<Install> eds;
+    const auto add = [&](const Install& in) {
+        if (in.edition == Edition::Unknown) return;
+        for (const Install& e : eds)
+            if (e.edition == in.edition) return;
+        eds.push_back(in);
+    };
+    add(here);
+    for (Edition e : {Edition::Nse2019, Edition::Dcu2017}) {
+        const std::wstring dir = ini_get(launcher_ini(), L"Editions", edition_key(e));
+        if (!dir.empty()) add(Install::in_dir(full_path(dir)));
+    }
+    std::wstring base = here.dir;
+    int budget = 4000;  // folders looked at, in all
+    for (int up = 0; up < 3 && eds.size() < 2; ++up) {
+        base = parent(base);
+        std::vector<std::wstring> found;
+        search(base, 4, budget, found);
+        for (const std::wstring& dir : found) add(Install::in_dir(dir));
+    }
+    std::sort(eds.begin(), eds.end(), [](const Install& a, const Install& b) { return a.edition > b.edition; });
+    return eds;
+}
+
+int last_edition(const std::vector<Install>& eds) {
+    const std::wstring key = ini_get(launcher_ini(), L"Launcher", L"Edition");
+    for (std::size_t i = 0; i < eds.size(); ++i)
+        if (key == edition_key(eds[i].edition)) return static_cast<int>(i);
+    return 0;
+}
+
+void remember_edition(const Install& in) {
+    WritePrivateProfileStringW(L"Launcher", L"Edition", edition_key(in.edition), launcher_ini().c_str());
+}
 
 void GameOptions::load(const Install& in) {
     freeplay = ini_get(in.shelldata, L"Credit", L"Freeplay", L"1") != L"0";

@@ -13,8 +13,20 @@ struct Install {
     std::wstring dir, game_exe, shelldata, gamesettings;
     Edition edition = Edition::Unknown;
     static Install find();  // beside the launcher
+    static Install in_dir(const std::wstring& dir);
     bool has_game() const;
+    bool has_shim() const;  // dinput8.dll beside Daytona.exe
+    const char* name() const;  // "NEW SEASON EDITION", "2017 EDITION"
 };
+
+// Every edition the launcher can start: its own folder's, then the other
+// edition, from launcher.ini [Editions] 2017= / 2019= (a folder holding
+// Daytona.exe), or else found by looking around the launcher's folder (up to
+// three folders up, four down). At most one per edition.
+std::vector<Install> find_editions(const Install& here);
+// launcher.ini [Launcher] Edition: the one chosen last (an index into the list).
+int last_edition(const std::vector<Install>& eds);
+void remember_edition(const Install& in);
 
 std::wstring ini_get(const std::wstring& file, const wchar_t* section, const wchar_t* key, const wchar_t* def = L"");
 // The game's own files: a copy is kept as <file>.shim-backup before the

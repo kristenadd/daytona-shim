@@ -30,6 +30,19 @@ change a setting, A (Cross on PlayStation) to select, B (Circle) to go back.
 On a keyboard: arrows, Enter, Esc or Backspace. Settings are saved when you
 leave the list. The button prompts follow the pad you use.
 
+Both editions from one launcher: with the 2017 and 2019 games both
+installed, the edition under the logo is a choice (left / right). START
+runs that edition and OPTIONS edits its settings; the launcher remembers
+the last one. Copy dinput8.dll, SDL3.dll and shim.ini next to each
+edition's Daytona.exe; one launcher (and one Steam shortcut) is enough.
+The launcher finds the other edition in the folders around its own (for
+example Games/Daytona 2019/Sega/Daytona and Games/Daytona 2017/Daytona).
+If it does not, name the folders that hold each Daytona.exe in a
+launcher.ini beside the launcher:
+    [Editions]
+    2017=Z:\home\deck\Games\Daytona 2017\Daytona
+    2019=Z:\home\deck\Games\Daytona 2019\Sega\Daytona
+
 On Windows it opens as a window with tabs:
   Game        free play, music / effects / voice volume (ShellData.ini)
   Rules       difficulty, race length, car and track select, tournament
@@ -39,7 +52,7 @@ On Windows it opens as a window with tabs:
               pedals, force feedback and rumble strength; a live readout
               shows what the game will get from your wheel
   Play        saves, starts Daytona.exe, and closes when the game does
-Options: --play starts the game at once, --big opens the full-screen
+Options: --play starts the game at once (the edition chosen last), --big opens the full-screen
 launcher on Windows, --desktop the window under Proton. (Pad and wheel
 controls are set in the window, or in shim.ini.)
 

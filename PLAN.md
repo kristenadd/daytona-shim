@@ -193,6 +193,15 @@ daytona-shim/
    screens draw, keyboard moves, changes and saves (Music 80 to 70,
    Difficulty EASY to HARD in the files), the Xbox and PlayStation prompts.
    Not yet on the Deck.
+   **Both editions from one launcher:** the edition under the logo is a
+   choice when both are found (`launcher.ini [Editions] 2017= / 2019=`, or
+   a search around the launcher's folder: up to three folders up, four down,
+   at most 4,000 folders). START runs that edition, OPTIONS edits its files,
+   `[Launcher] Edition` remembers it (and `--play` uses it). An edition
+   without `dinput8.dll` beside it is not started. Checked in the VM with a
+   2017 folder beside the 2019 one: found, switched, its options (no volume
+   rows: 2017's ShellData.ini has no [Audio]), remembered, and the missing
+   shim reported.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.

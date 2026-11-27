@@ -361,14 +361,16 @@ std::vector<Row> build_rows(const GameOptions& o) {
 // --- The screens -----------------------------------------------------------------
 
 struct Big {
-    const Install* in = nullptr;
+    std::vector<Install> eds;  // the editions it can start, 2019 first
+    int ed = 0;
+    const Install* in = nullptr;  // eds[ed], or the launcher's own folder
     SDL_Window* win = nullptr;
     SDL_Texture* logo = nullptr;
     float logo_w = 0, logo_h = 0;
     GameOptions opts;
     Input input;
     enum Screen { Title, Options } screen = Title;
-    int title_sel = 0;  // 0 START, 1 OPTIONS
+    int title_sel = 1;  // 0 the edition, 1 START, 2 OPTIONS
     std::vector<Row> rows;
     int row_sel = 1;
     float scroll = 0;  // rows, eased toward the target
@@ -469,31 +471,57 @@ struct Big {
         }
     }
 
+    bool can_switch() const { return eds.size() > 1; }
+
+    void switch_edition(int dir) {
+        if (!can_switch()) return;
+        if (dirty) opts.save(*in);
+        dirty = false;
+        ed = (ed + dir + static_cast<int>(eds.size())) % static_cast<int>(eds.size());
+        in = &eds[ed];
+        remember_edition(*in);
+        opts.load(*in);
+        rows = build_rows(opts);
+        row_sel = 1;
+        note.clear();
+    }
+
     void draw_title() {
         // The logo on a white band, as on the cabinet's marquee.
-        const float band_y = 120, band_h = 330;
+        const float band_y = 106, band_h = 306;
         para(-60, band_y - 14, kW + 120, 10, 40, kRed);
         para(-60, band_y, kW + 120, band_h, 40, kWhite);
         para(-60, band_y + band_h + 4, kW + 120, 10, 40, kYellow);
         if (logo != nullptr) {
-            const float w = 680, h = w * logo_h / logo_w;
+            const float w = 640, h = w * logo_h / logo_w;
             SDL_FRect dst{(kW - w) / 2 + 20, band_y + (band_h - h) / 2, w, h};
             SDL_RenderTexture(ren, logo, nullptr, &dst);
         }
-        const char* edition = in->edition == Edition::Nse2019   ? "NEW SEASON EDITION"
-                              : in->edition == Edition::Dcu2017 ? "2017 EDITION"
-                                                                : "";
+        // The edition: a choice when both are installed.
+        const char* edition = in->name();
         if (*edition) {
-            const float w = heading_font.width(edition);
-            heading_font.shadowed(edition, (kW - w) / 2 + 10, band_y + band_h + 22, kYellow, kItalic);
+            const float w = heading_font.width(edition), x = (kW - w) / 2 + 6, y = band_y + band_h + 26;
+            const float my = y + 25;
+            if (title_sel == 0) {
+                para(x - 70, y - 4, w + 136, 56, 14, kYellow, kOrange);
+                heading_font.draw(edition, x, y, kBlack, kItalic);
+                triangle({x - 46, my}, {x - 30, my - 12}, {x - 30, my + 12}, kBlack);
+                triangle({x + w + 54, my}, {x + w + 38, my - 12}, {x + w + 38, my + 12}, kBlack);
+            } else {
+                heading_font.shadowed(edition, x, y, kYellow, kItalic);
+                if (can_switch()) {
+                    triangle({x - 40, my}, {x - 28, my - 9}, {x - 28, my + 9}, rgb(0xFFFFFF, 0.8f));
+                    triangle({x + w + 46, my}, {x + w + 34, my - 9}, {x + w + 34, my + 9}, rgb(0xFFFFFF, 0.8f));
+                }
+            }
         }
         if (!note.empty()) small_font.draw(note, 40, kH - 36, kYellow, kItalic * 0.5f);
         const char* items[2] = {"START", "OPTIONS"};
         for (int i = 0; i < 2; ++i) {
-            const float y = 524 + i * 72;
+            const float y = 510 + i * 70;
             const float w = title_font.width(items[i]);
             const float x = (kW - w) / 2;
-            const bool sel = title_sel == i;
+            const bool sel = title_sel == i + 1;
             if (sel) {
                 para(x - 54, y - 2, w + 96, 66, 16, kYellow, kOrange);
                 // START pulses as the arcade's "PRESS START"; it flashes once chosen.
@@ -504,7 +532,7 @@ struct Big {
                 title_font.shadowed(items[i], x, y, kWhite, kItalic);
             }
         }
-        footer(false);
+        footer(title_sel == 0);
     }
 
     std::string row_value(const Row& r) const {
@@ -522,6 +550,7 @@ struct Big {
         // The header tab and a small logo chip.
         para(40, 34, 420, 64, 18, kRed, rgb(0xB0141C));
         heading_font.shadowed("OPTIONS", 84, 44, kWhite, kItalic);
+        small_font.shadowed(in->name(), 500, 58, kYellow, kItalic, 2);
         if (logo != nullptr) {
             para(kW - 300, 28, 250, 82, 18, kWhite);
             const float w = 176, h = w * logo_h / logo_w;
@@ -618,7 +647,7 @@ struct Big {
         if (dirty) note = opts.save(*in) ? "SETTINGS SAVED" : "SETTINGS COULD NOT BE SAVED";
         dirty = false;
         screen = Title;
-        title_sel = 1;
+        title_sel = 2;
         fade_start = SDL_GetTicks();
     }
 
@@ -628,11 +657,25 @@ struct Big {
         if (screen == Title) {
             switch (a) {
                 case Action::Up:
-                case Action::Down: title_sel ^= 1; break;
+                    if (title_sel > (can_switch() ? 0 : 1)) --title_sel;
+                    break;
+                case Action::Down:
+                    if (title_sel < 2) ++title_sel;
+                    break;
+                case Action::Left:
+                case Action::Right:
+                    if (title_sel == 0) switch_edition(a == Action::Left ? -1 : 1);
+                    break;
                 case Action::Confirm:
                     if (title_sel == 0) {
+                        switch_edition(1);
+                    } else if (title_sel == 1) {
                         if (!in->has_game()) {
                             note = "PUT THE LAUNCHER IN THE FOLDER THAT HOLDS DAYTONA.EXE";
+                            break;
+                        }
+                        if (!in->has_shim()) {
+                            note = "COPY DINPUT8.DLL, SDL3.DLL AND SHIM.INI NEXT TO THIS EDITION'S DAYTONA.EXE TOO";
                             break;
                         }
                         starting = true;
@@ -708,7 +751,13 @@ int run_big(const Install& in) {
     const char* shot = std::getenv("DAYTONA_LAUNCHER_SHOT");
     const SDL_WindowFlags flags = shot != nullptr ? 0 : SDL_WINDOW_FULLSCREEN;
     Big big;
-    big.in = &in;
+    big.eds = find_editions(in);
+    if (big.eds.empty()) {
+        big.in = &in;
+    } else {
+        big.ed = last_edition(big.eds);
+        big.in = &big.eds[big.ed];
+    }
     big.win = SDL_CreateWindow("Daytona Championship USA", static_cast<int>(kW), static_cast<int>(kH), flags);
     ren = big.win != nullptr ? SDL_CreateRenderer(big.win, nullptr) : nullptr;
     if (ren == nullptr) {
@@ -727,13 +776,13 @@ int run_big(const Install& in) {
     row_font.load(body_ttf, 30);
     small_font.load(body_ttf, 22);
     big.logo = load_logo(big.logo_w, big.logo_h);
-    big.opts.load(in);
+    big.opts.load(*big.in);
     big.rows = build_rows(big.opts);
     big.fade_start = SDL_GetTicks();
     if (const char* g = std::getenv("DAYTONA_LAUNCHER_GLYPHS"))  // testing: ps, xbox, nintendo
         big.input.glyphs = g[0] == 'p' ? Glyphs::PlayStation : g[0] == 'x' ? Glyphs::Xbox : Glyphs::Nintendo;
     if (GetCommandLineW() != nullptr && wcsstr(GetCommandLineW(), L"--screen=options") != nullptr) big.screen = Big::Options;
-    if (!in.has_game()) big.note = "PUT THE LAUNCHER IN THE FOLDER THAT HOLDS DAYTONA.EXE";
+    if (!big.in->has_game()) big.note = "PUT THE LAUNCHER IN THE FOLDER THAT HOLDS DAYTONA.EXE";
 
     int frames = 0;
     for (bool running = true; running;) {
@@ -755,10 +804,10 @@ int run_big(const Install& in) {
             SDL_DestroyRenderer(ren);
             SDL_DestroyWindow(big.win);
             SDL_Quit();
-            play(in);
+            play(*big.in);
         }
     }
-    if (big.dirty) big.opts.save(in);
+    if (big.dirty) big.opts.save(*big.in);
     SDL_Quit();
     return 0;
 }
