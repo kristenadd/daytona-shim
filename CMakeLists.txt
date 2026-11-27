@@ -33,7 +33,7 @@ if(WIN32)
     message(FATAL_ERROR "launcher assets not found: run tools/fetch_assets.sh")
   endif()
   add_executable(DaytonaLauncher WIN32
-    launcher/main.cpp launcher/settings.cpp launcher/desktop.cpp launcher/big.cpp launcher/launcher.rc
+    launcher/main.cpp launcher/settings.cpp launcher/desktop.cpp launcher/big.cpp launcher/sounds.cpp launcher/sound_bank.cpp launcher/launcher.rc
     shim/config.cpp shim/log.cpp)
   target_include_directories(DaytonaLauncher PRIVATE shim ${SDL3_DIR}/i686-w64-mingw32/include ${ASSETS_DIR})
   target_compile_definitions(DaytonaLauncher PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE _WIN32_WINNT=0x0601)
@@ -48,4 +48,9 @@ else()
   add_executable(test_shim tests/test_shim.cpp)
   target_link_libraries(test_shim PRIVATE shim_core)
   add_test(NAME test_shim COMMAND test_shim)
+  # The launcher's sound bank reader, against the player's SE.csb when
+  # DAYTONA_SE_CSB names one (skipped otherwise).
+  add_executable(test_sound_bank tests/test_sound_bank.cpp launcher/sound_bank.cpp)
+  target_include_directories(test_sound_bank PRIVATE launcher)
+  add_test(NAME test_sound_bank COMMAND test_sound_bank)
 endif()

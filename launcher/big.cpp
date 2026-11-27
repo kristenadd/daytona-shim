@@ -1,7 +1,7 @@
 // The full-screen launcher, for the Steam Deck (and big screens): the title
 // with the edition, START, OPTIONS (one list of the game's settings) and
 // CONTROLS (pad layout, wheel, force feedback: the edition's shim.ini, with
-// press-to-map). Driven by a
+// press-to-map). Its sounds are the game's own, read from SE.csb. Driven by a
 // pad (d-pad or left stick; A / Cross selects, B / Circle goes back) or the
 // keyboard (arrows, Enter, Esc or Backspace).
 //
@@ -47,6 +47,7 @@
 #include "bindings.hpp"
 #include "config.hpp"
 #include "settings.hpp"
+#include "sounds.hpp"
 
 namespace launcher {
 namespace {
@@ -440,6 +441,9 @@ struct Big {
     float logo_w = 0, logo_h = 0;
     GameOptions opts;
     Input input;
+    Sounds sounds;  // the game's own: decision, cancel, the name-entry tick, the engine
+    bool exiting = false;
+    Uint64 exit_at = 0;
     enum Screen { Title, Options, Controls } screen = Title;
     int title_sel = 1;  // 0 the edition, 1 START, 2 OPTIONS, 3 CONTROLS
     shim::Config cfg;   // this edition's shim.ini
@@ -831,7 +835,10 @@ struct Big {
     void capture_poll() {
         if (capture_row < 0) return;
         const Uint64 now = SDL_GetTicks();
-        if (now - capture_at > 8000) return capture_end("NOTHING PRESSED");
+        if (now - capture_at > 8000) {
+            sounds.play(Sound::Cancel);
+            return capture_end("NOTHING PRESSED");
+        }
         const Row& r = rows[capture_row];
         const auto cur = device_states(r.ctl == Ctl::PadBind);
         const bool settle = now - capture_at < 200;
@@ -851,6 +858,7 @@ struct Big {
                     continue;
                 }
                 cfg_dirty = true;
+                sounds.play(Sound::Decide);
                 return capture_end("SET");
             }
             for (std::size_t a = 0; a < d.axes.size() && a < base->axes.size(); ++a) {
@@ -866,13 +874,14 @@ struct Big {
                     continue;
                 }
                 cfg_dirty = true;
+                sounds.play(Sound::Decide);
                 return capture_end("SET");
             }
         }
         capture_prev = cur;
     }
 
-    void change(int dir) {
+    bool change(int dir) {
         Row& r = rows[row_sel];
         switch (r.ctl) {
             case Ctl::FreePlay: opts.freeplay = !opts.freeplay; break;
@@ -886,7 +895,7 @@ struct Big {
         }
         if (r.ctl == Ctl::FreePlay || r.ctl == Ctl::Volume || r.ctl == Ctl::Rule) {
             dirty = true;
-            return;
+            return true;
         }
         switch (r.ctl) {
             case Ctl::PadBind: {
@@ -921,9 +930,10 @@ struct Big {
             case Ctl::Invert: cfg.ffb_invert = !cfg.ffb_invert; break;
             case Ctl::Strength: cfg.ffb_strength = std::clamp(cfg.ffb_strength + 0.1f * dir, 0.0f, 2.0f); break;
             case Ctl::Rumble: cfg.rumble = std::clamp(cfg.rumble + 0.1f * dir, 0.0f, 2.0f); break;
-            default: return;
+            default: return false;
         }
         cfg_dirty = true;
+        return true;
     }
 
     void move(int dir) {
@@ -946,14 +956,18 @@ struct Big {
 
     // Returns false to quit.
     bool act(Action a) {
-        if (a == Action::None || starting) return true;
+        if (a == Action::None || starting || exiting) return true;
         if (capture_row >= 0) {
             // Only the keyboard cancels: any pad button may be the one to map.
-            if (a == Action::Back && input.glyphs == Glyphs::Keyboard) capture_end("", false);
+            if (a == Action::Back && input.glyphs == Glyphs::Keyboard) {
+                sounds.play(Sound::Cancel);
+                capture_end("", false);
+            }
             return true;
         }
         if (SDL_GetTicks() < quiet_until) return true;
         if (screen == Title) {
+            const int before = title_sel;
             switch (a) {
                 case Action::Up:
                     if (title_sel > (can_switch() ? 0 : 1)) --title_sel;
@@ -963,46 +977,79 @@ struct Big {
                     break;
                 case Action::Left:
                 case Action::Right:
-                    if (title_sel == 0) switch_edition(a == Action::Left ? -1 : 1);
+                    if (title_sel == 0 && can_switch()) {
+                        switch_edition(a == Action::Left ? -1 : 1);
+                        sounds.play(Sound::Move);
+                    }
                     break;
                 case Action::Confirm:
                     if (title_sel == 0) {
-                        switch_edition(1);
+                        if (can_switch()) {
+                            switch_edition(1);
+                            sounds.play(Sound::Move);
+                        }
                     } else if (title_sel == 1) {
                         if (!in->has_game()) {
                             note = "PUT THE LAUNCHER IN THE FOLDER THAT HOLDS DAYTONA.EXE";
+                            sounds.play(Sound::Cancel);
                             break;
                         }
                         if (!in->has_shim()) {
                             note = "COPY DINPUT8.DLL, SDL3.DLL AND SHIM.INI NEXT TO THIS EDITION'S DAYTONA.EXE TOO";
+                            sounds.play(Sound::Cancel);
                             break;
                         }
+                        // The engine revs as the game starts.
+                        sounds.play(Sound::Start);
                         starting = true;
                         start_at = SDL_GetTicks();
                     } else {
+                        sounds.play(Sound::Decide);
                         open_list(title_sel == 2 ? Options : Controls);
                     }
                     break;
-                case Action::Back: return false;
+                case Action::Back:
+                    sounds.play(Sound::Cancel);
+                    exiting = true;
+                    exit_at = SDL_GetTicks();
+                    break;
                 default: break;
             }
+            if ((a == Action::Up || a == Action::Down) && title_sel != before) sounds.play(Sound::Move);
             return true;
         }
         switch (a) {
-            case Action::Up: move(-1); break;
-            case Action::Down: move(1); break;
-            case Action::Left: change(-1); break;
-            case Action::Right: change(1); break;
+            case Action::Up:
+                move(-1);
+                sounds.play(Sound::Move);
+                break;
+            case Action::Down:
+                move(1);
+                sounds.play(Sound::Move);
+                break;
+            case Action::Left:
+            case Action::Right:
+                if (change(a == Action::Left ? -1 : 1)) sounds.play(Sound::Move);
+                break;
             case Action::Confirm:
+                sounds.play(Sound::Decide);
                 if (rows[row_sel].kind == Row::Done) leave_list();
                 else if (rows[row_sel].mappable()) capture_start();
                 else change(1);
                 break;
-            case Action::Back: leave_list(); break;
+            case Action::Back:
+                sounds.play(Sound::Cancel);
+                leave_list();
+                break;
             default: break;
         }
         return true;
     }
+
+    // The fade before the game starts lasts as long as the engine sound; the
+    // one before leaving, as long as the cancel sound.
+    float launch_ms() const { return std::max(700.0f, sounds.seconds(Sound::Start) * 1000.0f); }
+    float exit_ms() const { return std::clamp(sounds.seconds(Sound::Cancel) * 1000.0f, 250.0f, 900.0f); }
 
     void frame() {
         SDL_SetRenderDrawColor(ren, 4, 20, 50, 255);
@@ -1012,7 +1059,8 @@ struct Big {
         else draw_list();
         // Fade in after a screen change; fade out when starting.
         float fade = 1.0f - std::min(1.0f, (SDL_GetTicks() - fade_start) / 250.0f);
-        if (starting) fade = std::min(1.0f, (SDL_GetTicks() - start_at) / 700.0f);
+        if (starting) fade = std::min(1.0f, (SDL_GetTicks() - start_at) / launch_ms());
+        if (exiting) fade = std::min(1.0f, (SDL_GetTicks() - exit_at) / exit_ms());
         if (fade > 0) {
             SDL_SetRenderDrawColor(ren, 0, 0, 0, static_cast<Uint8>(fade * 255));
             SDL_RenderFillRect(ren, nullptr);
@@ -1042,7 +1090,7 @@ SDL_Texture* load_logo(float& w, float& h) {
 int run_big(const Install& in) {
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "0");  // Steam Input's pad, as the shim
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK, "0");
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
         MessageBoxA(nullptr, SDL_GetError(), "Daytona", MB_ICONERROR);
         return 1;
     }
@@ -1094,6 +1142,10 @@ int run_big(const Install& in) {
         big.input.glyphs = g[0] == 'p' ? Glyphs::PlayStation : g[0] == 'x' ? Glyphs::Xbox : Glyphs::Nintendo;
     if (GetCommandLineW() != nullptr && wcsstr(GetCommandLineW(), L"--screen=options") != nullptr) big.open_list(Big::Options);
     if (GetCommandLineW() != nullptr && wcsstr(GetCommandLineW(), L"--screen=controls") != nullptr) big.open_list(Big::Controls);
+    // The sounds come from the game: either edition's bank will do.
+    for (const Install& e : big.eds)
+        if (big.sounds.load(e.dir)) break;
+    if (big.eds.empty()) big.sounds.load(in.dir);
     if (!big.in->has_game()) big.note = "PUT THE LAUNCHER IN THE FOLDER THAT HOLDS DAYTONA.EXE";
 
     int frames = 0;
@@ -1113,7 +1165,9 @@ int run_big(const Install& in) {
             }
         }
         SDL_RenderPresent(ren);
-        if (big.starting && SDL_GetTicks() - big.start_at > 750) {
+        if (big.exiting && SDL_GetTicks() - big.exit_at > big.exit_ms()) running = false;
+        if (big.starting && SDL_GetTicks() - big.start_at > big.launch_ms() + 50) {
+            big.sounds.close();
             SDL_DestroyRenderer(ren);
             SDL_DestroyWindow(big.win);
             SDL_Quit();
@@ -1122,6 +1176,7 @@ int run_big(const Install& in) {
     }
     if (big.dirty) big.opts.save(*big.in);
     if (big.cfg_dirty) shim::save_config(big.cfg, big.cfg_path());
+    big.sounds.close();
     SDL_Quit();
     return 0;
 }

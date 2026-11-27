@@ -25,7 +25,8 @@ its licence, [dist/shim.ini](dist/shim.ini) (settings, all optional) and
 [dist/INSTALL.txt](dist/INSTALL.txt), which says how to install and run it on
 Windows and the Steam Deck.
 
-Host-side tests (the challenge answer, DYT framing):
+Host-side tests (the challenge answer, DYT framing; the launcher's sound
+bank reader when `DAYTONA_SE_CSB` names a game's `rom/sound/csb/SE.csb`):
 
 ```
 cmake -S . -B build/host -G Ninja && cmake --build build/host && ctest --test-dir build/host
@@ -47,6 +48,7 @@ cmake -S . -B build/host -G Ninja && cmake --build build/host && ctest --test-di
 | `launcher/main.cpp` | `DaytonaLauncher.exe`: picks the full-screen launcher under Proton, the window on Windows |
 | `launcher/big.cpp` | full-screen, controller-driven launcher (SDL3 renderer, stb_truetype, `launcher/logo.png`) |
 | `launcher/desktop.cpp` | the Windows window: tabs for settings, controls, wheel |
+| `launcher/sound_bank.cpp`, `launcher/sounds.cpp` | the game's SE.csb (CRI @UTF tables, ADX) decoded, played through SDL3 |
 | `launcher/settings.cpp` | the install, ShellData.ini / GameSettings.ini, starting the game |
 | `shim/bindings.hpp` | pad buttons and axes by name (shim.ini `[Pad]`) |
 | `shim/config.cpp` | `shim.ini` (sample in `dist/shim.ini`) |

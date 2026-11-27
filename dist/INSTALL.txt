@@ -40,6 +40,10 @@ wheel axis or button waits for you to press the button, or move the stick,
 trigger, wheel or pedal, that you want (Esc on the keyboard cancels). The
 top of the screen shows what the game will get from your wheel.
 
+Its sounds are the game's own, read from the game folder
+(rom/sound/csb/SE.csb): the name-entry tick when moving, "decision" and
+"cancel" for A and B, and the engine revving as the game starts.
+
 Both editions from one launcher: with the 2017 and 2019 games both
 installed, the edition under the logo is a choice (left / right). START
 runs that edition and OPTIONS edits its settings; the launcher remembers

@@ -214,6 +214,13 @@ daytona-shim/
    1280x800 and 1920x1080: the screens, keyboard changes saved to
    `shim.ini`, press-to-map waiting and cancelled. Not checked: mapping with
    a real pad or wheel.
+   **Sounds:** the game's own, from the player's `rom/sound/csb/SE.csb`:
+   the top @UTF table's SOUND_ELEMENT table, rows `Synth/<name>_wav|aif`,
+   each an AAX table whose first segment is standard ADX (type 3, v4,
+   unencrypted). `161_NAME_ENTRY_THREE` on moves and changes, `decision` on
+   A, `cancel` on B, `002_ACCEL` on START (the fade lasts its 1.4 s).
+   The decoder matched a dump of `cancel` at correlation 0.9998;
+   `test_sound_bank` checks all four in both editions' banks.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.
