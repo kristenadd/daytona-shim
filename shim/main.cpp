@@ -8,6 +8,7 @@
 #include "log.hpp"
 #include "net.hpp"
 #include "pad.hpp"
+#include "restore.hpp"
 #include "shell.hpp"
 
 extern "C" HRESULT WINAPI DirectInput8Create(HINSTANCE, DWORD version, REFIID riid, LPVOID* out,
@@ -30,12 +31,16 @@ BOOL WINAPI DllMain(HINSTANCE self, DWORD reason, LPVOID) {
     shim::log_open();
     const shim::Edition edition = shim::detect_edition();
     shim::logf("daytona-shim: Daytona.exe edition %s", shim::edition_name(edition));
+    shim::start_quit_watch();
     if (edition == shim::Edition::Unknown) {
         shim::logf("not a known Daytona.exe (2017 or 2019 PC release); only DirectInput is provided");
         return TRUE;
     }
-    if (edition == shim::Edition::Dcu2017 && shim::teknoparrot_patched())
-        shim::logf("warning: this is TeknoParrot's patched 2017 Daytona.exe; run Daytona.exe.original instead");
+    if (edition == shim::Edition::Dcu2017 && shim::teknoparrot_patched()) {
+        shim::logf("this is TeknoParrot's patched 2017 Daytona.exe; restoring the original in memory");
+        if (!shim::restore_original_image() || shim::teknoparrot_patched())
+            shim::logf("warning: the patched code is still in place; input and the frame gate may not work");
+    }
     shim::install_net_hooks();
     // The thread starts once the loader is done with us.
     shim::start_shell(edition);

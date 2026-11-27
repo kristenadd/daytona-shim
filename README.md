@@ -6,7 +6,7 @@ TeknoParrot or the cabinet's `Shell.exe`. A `dinput8.dll` placed beside the
 game stands in for the IO board, the shell and the cabinet network, and
 reads modern controllers through SDL3.
 
-Status: phase 2, a first build for 2019, not yet run. See [PLAN.md](PLAN.md) for the plan and
+Status: 2019 runs on the Steam Deck; 2017 is built (the patched `Daytona.exe` restored in memory from `Daytona.exe.original`), not yet run. Esc or Start + Back (held a second) quits. See [PLAN.md](PLAN.md) for the plan and
 [NOTES.md](NOTES.md) for what the disassembly shows.
 
 Nothing from the game is in this repository; you need your own install.
@@ -40,4 +40,5 @@ cmake -S . -B build/host -G Ninja && cmake --build build/host && ctest --test-di
 | `shim/net.cpp` | `connect`, `bind`, `gethostbyname`, `XInputGetState`, `CreateProcessA` hooks |
 | `shim/iat.cpp` | import table patches in `Daytona.exe` |
 | `shim/edition.cpp` | 2017 / 2019 by PE timestamp, per-edition addresses |
+| `shim/restore.cpp`, `shim/diff_runs.cpp` | 2017: TeknoParrot's edits undone in memory from `Daytona.exe.original` |
 | `shim.log` | written beside `Daytona.exe` at run time |

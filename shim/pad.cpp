@@ -9,6 +9,7 @@
 //   coin       Back                             5
 //   shift      right / left shoulder            A / Z
 //   views 1-4  Y / X / B / A                    F1 .. F4
+//   quit       Start + Back held for a second   Esc
 //
 // SDL3 (PlayStation and Switch pads outside Steam) is the next step.
 #include "pad.hpp"
@@ -45,6 +46,41 @@ bool our_window_in_front() {
 
 bool key(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
+void ensure_pad() {
+    static const bool ready = (pad_init(), true);  // not from DllMain: it loads a DLL
+    (void)ready;
+}
+
+constexpr ULONGLONG kQuitHoldMs = 1000;
+
+DWORD WINAPI quit_watch(void*) {
+    ensure_pad();
+    ULONGLONG held_since = 0;
+    for (;;) {
+        Sleep(50);
+        const char* why = nullptr;
+        if (our_window_in_front() && key(VK_ESCAPE)) why = "Esc";
+        bool combo = false;
+        if (xinput_get_state != nullptr) {
+            constexpr WORD both = XINPUT_GAMEPAD_START | XINPUT_GAMEPAD_BACK;
+            for (DWORD user = 0; user < 4 && !combo; ++user) {
+                XINPUT_STATE s{};
+                combo = xinput_get_state(user, &s) == ERROR_SUCCESS && (s.Gamepad.wButtons & both) == both;
+            }
+        }
+        const ULONGLONG now = GetTickCount64();
+        if (!combo) held_since = 0;
+        else if (held_since == 0) held_since = now;
+        else if (now - held_since >= kQuitHoldMs) why = "Start + Back";
+        if (why != nullptr) {
+            logf("quit: %s", why);
+            // Not ExitProcess: the game's threads and its DLLs' detach handlers
+            // can hang on the way out. Nothing the game keeps needs a clean exit.
+            TerminateProcess(GetCurrentProcess(), 0);
+        }
+    }
+}
+
 }  // namespace
 
 void pad_init() {
@@ -62,8 +98,7 @@ void pad_init() {
 }
 
 Controls read_controls() {
-    static const bool ready = (pad_init(), true);  // not from DllMain: it loads a DLL
-    (void)ready;
+    ensure_pad();
     Controls c;
     static int last_user = -1;
     if (xinput_get_state != nullptr) {
@@ -112,6 +147,11 @@ Controls read_controls() {
         c.connected = true;
     }
     return c;
+}
+
+void start_quit_watch() {
+    HANDLE t = CreateThread(nullptr, 0, quit_watch, nullptr, 0, nullptr);
+    if (t != nullptr) CloseHandle(t);
 }
 
 }  // namespace shim

@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "diff_runs.hpp"
 #include "dyt.hpp"
 #include "shell_answer.hpp"
 
@@ -55,6 +56,16 @@ int main() {
     if (r1.size() == 1) {
         const std::array<std::uint8_t, 4> answer = {r1[0][11], r1[0][12], r1[0][13], r1[0][14]};
         CHECK(shell_check_transform(answer) == (std::array<std::uint8_t, 4>{1, 2, 3, 4}));
+    }
+
+    // Differing runs (the 2017 restore).
+    {
+        const std::uint8_t a[] = {1, 2, 3, 4, 5, 6, 7, 8};
+        const std::uint8_t b[] = {1, 9, 9, 4, 5, 6, 0, 0};
+        const auto runs = diff_runs(a, b, sizeof a);
+        CHECK(runs.size() == 2 && runs[0].offset == 1 && runs[0].length == 2 && runs[1].offset == 6 &&
+              runs[1].length == 2);
+        CHECK(diff_runs(a, a, sizeof a).empty());
     }
 
     if (failures == 0) std::printf("test_shim: all passed\n");

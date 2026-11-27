@@ -1,13 +1,19 @@
 daytona-shim: Daytona Championship USA without TeknoParrot
 ===========================================================
 
-Status: first test build. 2019 (New Season Edition) only for now.
+Status: test build. 2019 (New Season Edition) works; 2017 is new and untested.
 
 Install
 -------
 Copy dinput8.dll into the folder that holds Daytona.exe:
 
     ...\Sega\Daytona\dinput8.dll      (2019)
+    ...\Daytona\dinput8.dll            (2017)
+
+2017: keep Daytona.exe.original next to Daytona.exe. The Daytona.exe in
+that folder is TeknoParrot's patched copy; the shim reads the original and
+puts its code back in memory, so you start Daytona.exe as usual. Neither
+file is changed.
 
 Nothing else in the game folder is changed. To remove it, delete the
 dinput8.dll again. Close TeknoParrot first (its shell takes the same port).
@@ -38,8 +44,9 @@ Controller (Xbox layout; the Deck's own controls work through Steam Input):
   Coin            Back (View)
   Shift up/down   right / left bumper
   Views 1-4       Y / X / B / A
+  Quit            hold Start + Back for a second
 Keyboard: arrows (steer, gas, brake), Enter start, 5 coin, A / Z shift,
-F1-F4 views.
+F1-F4 views, Esc quits.
 
 Free play is on by default (ShellData\ShellData.ini, [Credit] Freeplay=1).
 
@@ -51,5 +58,6 @@ what happened. A good first run shows, in this order:
   shell: listening on 127.0.0.1:18888
   shell: game connected
   shell: <- 0x.. / shell: -> 0x2C (the greeting)
+  (2017) restore: ... ranges (... bytes) put back from Daytona.exe.original, 0 skipped
   dinput: CreateDevice(SEGA IO Controller)
   shell: <- 0x2A (... challenge) every 10 s, each answered with -> 0x2E

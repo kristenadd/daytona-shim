@@ -20,5 +20,8 @@ struct Controls {
 
 void pad_init();
 Controls read_controls();
+// A thread that ends the game on Esc (its window in front) or Start + Back
+// held for a second on any pad.
+void start_quit_watch();
 
 }  // namespace shim

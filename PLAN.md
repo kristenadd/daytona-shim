@@ -126,7 +126,8 @@ daytona-shim/
      game opens by absolute path on a real PC.
    - Done when: a short note for each, with addresses, in `NOTES.md`.
 2. **Boot to attract** (2019): the launcher plus a shim with the shell link
-   and the network hooks, keyboard only. **Built, not yet run.** The first
+   and the network hooks, keyboard only. **Verified on the Steam Deck**
+   (the user: "worked perfectly"). The first
    build skips the launcher (the DLL goes beside `Daytona.exe`) and already
    has the IO board, fed by XInput and the keyboard, since the Deck has no
    keyboard at hand. Done when attract runs for 10
@@ -136,12 +137,23 @@ daytona-shim/
    `Freeplay=0` a coin gives `CREDIT(S) 1`.
 4. **2017:** the edition's addresses, the original executable, and refused
    discovery connects. Done when attract and a race run, with no network
-   error.
+   error. **Built, not yet run.** The folder's `Daytona.exe` is
+   TeknoParrot's (same layout and timestamp; 328,087 bytes differ in 19,232
+   runs: the four code edits and its caves in `.text`, and about 360 KB of
+   an embedded script library in `.rdata` with its comments rewritten). The
+   shim reads `Daytona.exe.original` in `DllMain` and copies every
+   differing byte back into the image (only where memory still holds the
+   patched bytes, never in the import table), so the player starts
+   `Daytona.exe` as usual. Checked offline that every difference lies in a
+   mapped section and none in the IAT.
 5. **The Steam Deck:** add the launcher as a non-Steam game with Proton
    (Experimental or 9+). Check that the controller reaches SDL inside Proton
    (Steam Input presents an XInput pad; SDL's own hidapi drivers may see the
    real device), the frame rate, and sound. Done when it holds a frame rate
    close to TeknoParrot's in a race.
+   Quitting: Esc (the game's window in front) or Start + Back held for a
+   second ends the process (`TerminateProcess`; the game has no exit of its
+   own).
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.
