@@ -6,8 +6,8 @@ PlayStation / Switch pads, wheels and force feedback (SDL3).
 
 Install
 -------
-Copy dinput8.dll, SDL3.dll and shim.ini into the folder that holds
-Daytona.exe:
+Copy everything in this folder (DaytonaLauncher.exe, dinput8.dll, SDL3.dll
+and shim.ini) into the folder that holds Daytona.exe:
 
     ...\Sega\Daytona\dinput8.dll      (2019)
     ...\Daytona\dinput8.dll            (2017)
@@ -17,23 +17,41 @@ that folder is TeknoParrot's patched copy; the shim reads the original and
 puts its code back in memory, so you start Daytona.exe as usual. Neither
 file is changed.
 
-Nothing else in the game folder is changed. To remove it, delete those
-three files again. Close TeknoParrot first (its shell takes the same port).
+To remove it, delete those files again. The shim itself changes nothing in
+the game folder; the launcher changes the game's own settings files only
+when you save, and keeps the first version of each as .shim-backup. Close TeknoParrot first (its shell takes the same port).
+
+The launcher
+------------
+DaytonaLauncher.exe sets up the game and starts it:
+  Game        free play, music / effects / voice volume (ShellData.ini)
+  Rules       difficulty, race length, car and track select, tournament
+              and the other operator settings (GameSettings.ini)
+  Controller  the pad layout; Detect, then press the button you want
+  Wheel       axes, buttons (Detect works for these too), steering scale,
+              pedals, force feedback and rumble strength; a live readout
+              shows what the game will get from your wheel
+  Play        saves, starts Daytona.exe, and closes when the game does
+"DaytonaLauncher.exe --play" starts the game without the window.
 
 Run on Windows
 --------------
-Double-click Daytona.exe (Windows loads the dinput8.dll beside it).
+Double-click DaytonaLauncher.exe (or Daytona.exe itself: Windows loads the
+dinput8.dll beside it either way).
 
 Run on the Steam Deck (Desktop Mode)
 -------------------------------------
 1. Steam > Games > Add a Non-Steam Game to My Library > Browse, pick
-   Daytona.exe (set the file type filter to "All Files" if it is hidden).
+   DaytonaLauncher.exe (set the file type filter to "All Files" if it is
+   hidden).
 2. In the new entry's Properties:
    - Compatibility: tick "Force the use of a specific Steam Play
      compatibility tool", choose Proton Experimental (or 9 or later).
    - Launch Options:
          WINEDLLOVERRIDES="dinput8=n,b" %command%
      Without this Proton uses its own dinput8 and the shim is not loaded.
+     To skip the launcher's window and start racing at once:
+         WINEDLLOVERRIDES="dinput8=n,b" %command% --play
    - Start In: the folder holding Daytona.exe (Steam fills it in).
 3. Launch it.
 

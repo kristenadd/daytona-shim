@@ -8,8 +8,9 @@
 //   controls this way).
 // - The keyboard while the game's window is in front (read by the caller).
 //
-// The pad layout is the recompilation's (src/runtime/pad_mapping.cpp), by
-// button position, so it is the same on every brand:
+// The default pad layout is the recompilation's (src/runtime/pad_mapping.cpp),
+// by button position, so it is the same on every brand (shim.ini [Pad]
+// changes it):
 //
 //   steering   left stick X (10% dead zone)    Left / Right
 //   gas, brake right / left trigger             Up / Down
@@ -75,6 +76,27 @@ void merge(Controls& into, const Controls& c) {
     into.buttons |= c.buttons;
 }
 
+// A pad binding's value: an axis as -1..1 (triggers 0..1), a button as 0 or 1.
+// `axis` and `button` read the device.
+template <typename AxisFn, typename ButtonFn>
+Controls apply_pad_bindings(const Config& cfg, float dz, AxisFn axis, ButtonFn button) {
+    const auto value = [&](const PadBinding& b) -> float {
+        switch (b.kind) {
+            case PadBinding::Axis: return axis(b.index);
+            case PadBinding::Button: return button(b.index) ? 1.0f : 0.0f;
+            default: return 0.0f;
+        }
+    };
+    Controls c;
+    c.connected = true;
+    c.steering = cfg.pad[0].kind == PadBinding::Axis ? dead_zone(value(cfg.pad[0]), dz) : 0.0f;
+    c.gas = std::clamp(value(cfg.pad[1]), 0.0f, 1.0f);
+    c.brake = std::clamp(value(cfg.pad[2]), 0.0f, 1.0f);
+    for (int bit = 0; bit < 12; ++bit)
+        if (value(cfg.pad[3 + bit]) > 0.5f) c.buttons |= 1u << bit;
+    return c;
+}
+
 // Pads: the game's force is mostly steady pull in corners, with fast
 // alternations for grass, kerbs and scraping. A pad shows the alternations on
 // the large motor and a little of the steady pull on the small one.
@@ -127,22 +149,19 @@ struct XInputPads {
             connected[user] = on;
             if (!on) continue;
             const XINPUT_GAMEPAD& g = s.Gamepad;
-            Controls c;
-            c.connected = true;
-            c.steering = dead_zone(g.sThumbLX / 32767.0f, kStickDeadZone);
-            c.gas = g.bRightTrigger / 255.0f;
-            c.brake = g.bLeftTrigger / 255.0f;
-            const auto set = [&](WORD mask, std::uint32_t b) {
-                if (g.wButtons & mask) c.buttons |= b;
+            const auto axis = [&](int i) -> float {
+                switch (kPadAxes[i].sdl) {
+                    case SDL_GAMEPAD_AXIS_LEFTX: return g.sThumbLX / 32767.0f;
+                    case SDL_GAMEPAD_AXIS_LEFTY: return -g.sThumbLY / 32767.0f;  // SDL's: down is positive
+                    case SDL_GAMEPAD_AXIS_RIGHTX: return g.sThumbRX / 32767.0f;
+                    case SDL_GAMEPAD_AXIS_RIGHTY: return -g.sThumbRY / 32767.0f;
+                    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return g.bLeftTrigger / 255.0f;
+                    case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return g.bRightTrigger / 255.0f;
+                    default: return 0.0f;
+                }
             };
-            set(XINPUT_GAMEPAD_START, Controls::Start);
-            set(XINPUT_GAMEPAD_BACK, Controls::Coin);
-            set(XINPUT_GAMEPAD_RIGHT_SHOULDER, Controls::ShiftUp);
-            set(XINPUT_GAMEPAD_LEFT_SHOULDER, Controls::ShiftDown);
-            set(XINPUT_GAMEPAD_Y, Controls::View1);
-            set(XINPUT_GAMEPAD_X, Controls::View2);
-            set(XINPUT_GAMEPAD_B, Controls::View3);
-            set(XINPUT_GAMEPAD_A, Controls::View4);
+            const auto button = [&](int i) { return (g.wButtons & kPadButtons[i].xinput) != 0; };
+            const Controls c = apply_pad_bindings(config(), kStickDeadZone, axis, button);
             merge(all, c);
         }
         return all;
@@ -329,24 +348,9 @@ struct SdlDevices {
     }
 
     static Controls read_pad(Device& d) {
-        Controls c;
-        c.connected = true;
-        c.steering = dead_zone(sdl.SDL_GetGamepadAxis(d.pad, SDL_GAMEPAD_AXIS_LEFTX) / 32767.0f,
-                               d.wheel_type ? 0.0f : kStickDeadZone);
-        c.gas = std::clamp(sdl.SDL_GetGamepadAxis(d.pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32767.0f, 0.0f, 1.0f);
-        c.brake = std::clamp(sdl.SDL_GetGamepadAxis(d.pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32767.0f, 0.0f, 1.0f);
-        const auto set = [&](SDL_GamepadButton b, std::uint32_t bit) {
-            if (sdl.SDL_GetGamepadButton(d.pad, b)) c.buttons |= bit;
-        };
-        set(SDL_GAMEPAD_BUTTON_START, Controls::Start);
-        set(SDL_GAMEPAD_BUTTON_BACK, Controls::Coin);
-        set(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, Controls::ShiftUp);
-        set(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, Controls::ShiftDown);
-        set(SDL_GAMEPAD_BUTTON_NORTH, Controls::View1);
-        set(SDL_GAMEPAD_BUTTON_WEST, Controls::View2);
-        set(SDL_GAMEPAD_BUTTON_EAST, Controls::View3);
-        set(SDL_GAMEPAD_BUTTON_SOUTH, Controls::View4);
-        return c;
+        const auto axis = [&](int i) { return sdl.SDL_GetGamepadAxis(d.pad, kPadAxes[i].sdl) / 32767.0f; };
+        const auto button = [&](int i) { return sdl.SDL_GetGamepadButton(d.pad, kPadButtons[i].sdl); };
+        return apply_pad_bindings(config(), d.wheel_type ? 0.0f : kStickDeadZone, axis, button);
     }
 
     static Controls read_wheel(Device& d) {

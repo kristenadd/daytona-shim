@@ -6,7 +6,7 @@ TeknoParrot or the cabinet's `Shell.exe`. A `dinput8.dll` placed beside the
 game stands in for the IO board, the shell and the cabinet network, and
 reads modern controllers through SDL3.
 
-Status: 2019 runs on the Steam Deck; so does 2017 (the patched `Daytona.exe` restored in memory from `Daytona.exe.original`). Esc or Start + Back (held a second) quits. New, not yet run: SDL3 pads (PlayStation, Switch), wheels and force feedback. See [PLAN.md](PLAN.md) for the plan and
+Status: 2019 runs on the Steam Deck; so does 2017 (the patched `Daytona.exe` restored in memory from `Daytona.exe.original`). Esc or Start + Back (held a second) quits. New, not yet run: SDL3 pads (PlayStation, Switch), wheels and force feedback. `DaytonaLauncher.exe` (settings and Play) runs in Windows 11. See [PLAN.md](PLAN.md) for the plan and
 [NOTES.md](NOTES.md) for what the disassembly shows.
 
 Nothing from the game is in this repository; you need your own install.
@@ -43,6 +43,8 @@ cmake -S . -B build/host -G Ninja && cmake --build build/host && ctest --test-di
 | `shim/edition.cpp` | 2017 / 2019 by PE timestamp, per-edition addresses |
 | `shim/pad.cpp` | input thread: SDL3 pads and wheels (or XInput), rumble and wheel force, quit |
 | `shim/ffb.cpp` | the force-feedback helper's part: the game's commands by `WM_COPYDATA` |
+| `launcher/main.cpp` | `DaytonaLauncher.exe`: ShellData.ini, GameSettings.ini, shim.ini, Play |
+| `shim/bindings.hpp` | pad buttons and axes by name (shim.ini `[Pad]`) |
 | `shim/config.cpp` | `shim.ini` (sample in `dist/shim.ini`) |
 | `shim/restore.cpp`, `shim/diff_runs.cpp` | 2017: TeknoParrot's edits undone in memory from `Daytona.exe.original` |
 | `shim.log` | written beside `Daytona.exe` at run time |

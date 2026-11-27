@@ -169,6 +169,18 @@ daytona-shim/
    message-only window with the game, and receives the commands: wheels get
    a constant force on the steering axis, pads a rumble (alternations on the
    large motor, 20% of the steady pull on the small one).
+   **The launcher** (`launcher/main.cpp`, a plain Win32 window so it runs
+   under Proton): Game (free play, volumes: `ShellData.ini`), Rules (the
+   game's 24 `GameSettings.ini` options, the game's table with its default
+   first; a key goes into the file only when it is there already or was
+   changed), Controller (`shim.ini [Pad]`, by button position, with
+   Detect), Wheel (axes, buttons, scale, pedals, force feedback, with
+   Detect and a live readout), and Play (saves, starts `Daytona.exe` in its
+   folder, waits for it so Steam sees one session). The game's files get a
+   `.shim-backup` copy before the first change. Checked in a Windows 11
+   (Arm, Parallels) VM: every tab draws, Save leaves the files' content
+   unchanged when nothing was changed, and Play boots the game with the
+   shim (shell link, challenge answers, SDL pad).
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.
