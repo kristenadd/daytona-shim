@@ -129,8 +129,8 @@ Deck, 1920x1080 or anything else on a PC):
 
   Move: d-pad or left stick (arrows on a keyboard); change a setting:
   left / right; select: A (Cross on PlayStation, Enter); back: B (Circle,
-  Esc or Backspace). Settings are saved when you leave a list. The button prompts follow the pad you
-  use.
+  Esc or Backspace). Settings are saved when you leave a list. The button
+  prompts follow the pad you use.
 
 Its sounds and music are the game's own, read from the game folder: the
 name panel sound when moving, "decision" and "cancel", the engine revving
