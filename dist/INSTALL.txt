@@ -1,117 +1,124 @@
 daytona-shim: Daytona Championship USA without TeknoParrot
 ===========================================================
 
-Status: test build. 2019 and 2017 run on the Steam Deck. New and untested:
-PlayStation / Switch pads, wheels and force feedback (SDL3).
+Runs the original game, the 2019 New Season Edition and the 2017 edition,
+on Windows and on the Steam Deck, with modern pads, wheels and force
+feedback, and a full-screen launcher for the game's settings.
 
-Install
--------
-Copy everything in this folder (DaytonaLauncher.exe, dinput8.dll, SDL3.dll
-and shim.ini) into the folder that holds Daytona.exe:
+Status: test build. Both editions run on the Steam Deck. Not yet tried on
+real hardware: wheels and force feedback.
 
-    ...\Sega\Daytona\dinput8.dll      (2019)
-    ...\Daytona\dinput8.dll            (2017)
 
-2017: keep Daytona.exe.original next to Daytona.exe. The Daytona.exe in
-that folder is TeknoParrot's patched copy; the shim reads the original and
-puts its code back in memory, so you start Daytona.exe as usual. Neither
-file is changed.
+1. Set up the folders
+---------------------
+Make one folder for the game, put the launcher in it, and unpack each
+edition into a subfolder. The same layout works on Windows and the Deck:
 
-To remove it, delete those files again. The shim itself changes nothing in
-the game folder; the launcher changes the game's own settings files only
-when you save, and keeps the first version of each as .shim-backup. Close TeknoParrot first (its shell takes the same port).
-
-The launcher
-------------
-On the Steam Deck (and anywhere under Proton) DaytonaLauncher.exe opens full
-screen, made for a controller: the title with START and OPTIONS, and one
-list of the game's settings. D-pad or left stick to move, left / right to
-change a setting, A (Cross on PlayStation) to select, B (Circle) to go back.
-On a keyboard: arrows, Enter, Esc or Backspace. Settings are saved when you
-leave the list. The button prompts follow the pad you use. It fills the
-screen at its own resolution: 1280x800 on the Deck, 1920x1080 (or any
-other size) elsewhere.
-
-CONTROLS on the title screen sets up the pad and wheel for the chosen
-edition (its shim.ini): every action of the pad, the wheel's axes and
-buttons, steering scale, pedals, and force feedback / rumble strength.
-Left / right goes through the choices; A (Cross) on a pad action or a
-wheel axis or button waits for you to press the button, or move the stick,
-trigger, wheel or pedal, that you want (Esc on the keyboard cancels). The
-top of the screen shows what the game will get from your wheel.
-
-Its sounds are the game's own, read from the game folder
-(rom/sound/csb/SE.csb): the name panel sound when moving, "decision" and
-"cancel" for A and B, and the engine revving as the game starts. The
-select music (rom/sound/adx/d1a_bgm01_sel.adx) plays in a seamless loop, at
-80% of the game's Music volume setting.
-
-Both editions from one launcher: with the 2017 and 2019 games both
-installed, the edition under the logo is a choice (left / right). START
-runs that edition and OPTIONS / CONTROLS edit its settings; the launcher
-remembers the last one. The simplest layout is one folder holding the
-launcher, with each edition unpacked in a subfolder of it:
-
-    Daytona/                    (for example /home/deck/Games/Daytona)
-      DaytonaLauncher.exe
+    Daytona/                         e.g. C:\Games\Daytona on Windows,
+      DaytonaLauncher.exe                 /home/deck/Games/Daytona on the Deck
       SDL3.dll
-      2019/                     the 2019 download's contents
-        Sega/Daytona/Daytona.exe   + dinput8.dll, SDL3.dll, shim.ini
-      2017/                     the 2017 download's contents
-        Daytona/Daytona.exe        + dinput8.dll, SDL3.dll, shim.ini
-                                   (and Daytona.exe.original)
+      2019/                          the 2019 download's contents
+        Sega/Daytona/Daytona.exe
+                     dinput8.dll     \
+                     SDL3.dll         > copied next to Daytona.exe
+                     shim.ini        /
+      2017/                          the 2017 download's contents
+        Daytona/Daytona.exe
+                Daytona.exe.original (keep it: see below)
+                dinput8.dll, SDL3.dll, shim.ini
 
-The launcher finds both by itself (it looks four folders down from its own,
-then around it); point the Steam shortcut at DaytonaLauncher.exe. If they
-are somewhere else, name the folders that hold each Daytona.exe in a
-launcher.ini beside the launcher, relative to it or absolute:
+So: DaytonaLauncher.exe and SDL3.dll in the top folder, and dinput8.dll,
+SDL3.dll and shim.ini next to each edition's Daytona.exe. The launcher
+finds the editions by itself (it looks four folders down from its own).
+With only one edition, leave out the other subfolder.
+
+The 2017 folder's Daytona.exe is TeknoParrot's patched copy; the original
+is beside it as Daytona.exe.original. Keep both: the shim reads the
+original and puts its code back in memory. Neither file is changed.
+
+If the editions are somewhere else, name the folders that hold each
+Daytona.exe in a launcher.ini next to the launcher, relative to it or
+absolute:
     [Editions]
-    2017=2017\Daytona
     2019=2019\Sega\Daytona
-Under Proton, Linux paths are on drive Z: (/home/deck/Games is
-Z:\home\deck\Games).
+    2017=2017\Daytona
+(Under Proton, Linux paths are on drive Z:. /home/deck/Games is
+Z:\home\deck\Games.)
 
-On Windows it opens as a window with tabs:
-  Game        free play, music / effects / voice volume (ShellData.ini)
-  Rules       difficulty, race length, car and track select, tournament
-              and the other operator settings (GameSettings.ini)
-  Controller  the pad layout; Detect, then press the button you want
-  Wheel       axes, buttons (Detect works for these too), steering scale,
-              pedals, force feedback and rumble strength; a live readout
-              shows what the game will get from your wheel
-  Play        saves, starts Daytona.exe, and closes when the game does
-Options: --play starts the game at once (the edition chosen last), --big opens the full-screen
-launcher on Windows, --desktop the window under Proton. 
+Close TeknoParrot first if it is running (its shell takes the same port).
+To remove everything, delete the files listed above. The shim changes
+nothing in the game folders; the launcher changes the game's own settings
+files only when you save, and keeps the first version of each beside it as
+.shim-backup.
 
-Run on Windows
---------------
-Double-click DaytonaLauncher.exe (or Daytona.exe itself: Windows loads the
-dinput8.dll beside it either way).
 
-Run on the Steam Deck (Desktop Mode)
--------------------------------------
+2. Windows
+----------
+Double-click DaytonaLauncher.exe. It opens full screen (see 4) and works
+with a pad or the keyboard. You can make a shortcut to it, or add it to
+Steam as a non-Steam game (no launch options needed on Windows).
+
+You can also still start an edition's Daytona.exe directly; the shim
+loads either way.
+
+
+3. Steam Deck (Desktop Mode)
+----------------------------
 1. Steam > Games > Add a Non-Steam Game to My Library > Browse, pick
-   DaytonaLauncher.exe (set the file type filter to "All Files" if it is
-   hidden).
+   DaytonaLauncher.exe in the top folder (set the file type filter to
+   "All Files" if it is hidden).
 2. In the new entry's Properties:
    - Compatibility: tick "Force the use of a specific Steam Play
      compatibility tool", choose Proton Experimental (or 9 or later).
    - Launch Options:
          WINEDLLOVERRIDES="dinput8=n,b" %command%
      Without this Proton uses its own dinput8 and the shim is not loaded.
-     To skip the launcher's window and start racing at once:
+     To skip the launcher and start the last edition chosen at once:
          WINEDLLOVERRIDES="dinput8=n,b" %command% --play
-   - Start In: the folder holding Daytona.exe (Steam fills it in).
-3. Launch it.
+3. Launch it (Game Mode works too).
 
 If Steam calls the game "Spacewar" and uses that game's controller layout,
-a steam_appid.txt (app 480, from another package) is in the game folder.
+a steam_appid.txt (app 480, from another package) is in a game folder.
 Delete it (and steam_api.dll or a steam_settings folder if present).
 
-Controls
---------
-Controllers: Xbox, PlayStation, Switch and other pads (through SDL3.dll),
-and the Deck's own controls through Steam Input. By button position:
+
+4. The launcher
+---------------
+It opens full screen at the screen's own resolution (1280x800 on the
+Deck, 1920x1080 or anything else on a PC):
+
+  Title     the logo, the edition (left / right to switch, when both are
+            installed), START, OPTIONS and CONTROLS
+  OPTIONS   one list: free play, volumes and every rule of the game
+  CONTROLS  the pad's actions, the wheel's axes, buttons, steering scale
+            and pedals, and force feedback / rumble (the edition's
+            shim.ini). A (Cross) on a pad action or a wheel axis or button
+            waits for you to press the button, or move the stick, trigger,
+            wheel or pedal, you want; Esc on a keyboard cancels. The top of
+            the screen shows what the game will get from your wheel.
+
+  Move: d-pad or left stick (arrows on a keyboard); change a setting:
+  left / right; select: A (Cross on PlayStation, Enter); back: B (Circle,
+  Esc or Backspace). B on the title screen closes the launcher. Settings
+  are saved when you leave a list. The button prompts follow the pad you
+  use.
+
+Its sounds and music are the game's own, read from the game folder: the
+name panel sound when moving, "decision" and "cancel", the engine revving
+as the game starts, and the select music in a seamless loop at 80% of the
+game's music volume.
+
+Options:
+  --play     start the last edition chosen at once
+  --desktop  a plain window with tabs instead (Game, Rules, Controller,
+             Wheel, and the edition at the top right)
+
+
+5. Controls in the game
+-----------------------
+Pads: Xbox, PlayStation, Switch and others (through SDL3.dll), and the
+Deck's own controls through Steam Input. The default layout, by button
+position:
   Steering        left stick
   Gas / brake     right / left trigger
   Start           Start / Options / +
@@ -119,29 +126,29 @@ and the Deck's own controls through Steam Input. By button position:
   Shift up/down   right / left bumper
   Views 1-4       top / left / right / bottom button (Xbox: Y / X / B / A)
   Quit            hold Start + Back for a second
-Several controllers at once are combined.
+Several controllers at once are combined. Change the layout in the
+launcher's CONTROLS, or in shim.ini [Pad].
 
-Steering wheels (Windows): Logitech, Thrustmaster, Fanatec and other wheels
-SDL knows are used by themselves. The defaults suit a Logitech G29 / G923:
-paddles shift, Options is Start, Share is Coin, the H-shifter's gears 1-4.
-For another wheel, shim.log lists "axis N moved" and "button N pressed" as
-you use it; put those numbers in shim.ini [Wheel]. If the wheel turns too
-far for full lock, set about 270 degrees in its software or raise
-SteeringScale.
-
-Force feedback: the game's own force feedback (what drove the cabinet's
-motor) goes to the wheel as a constant force, and to pads as rumble. Set
-the strength, or turn it off, in shim.ini [ForceFeedback]; Invert=1 if the
-wheel pulls the wrong way.
 Keyboard: arrows (steer, gas, brake), Enter start, 5 coin, A / Z shift,
 F1-F4 views, Esc quits.
 
-Free play is on by default (ShellData\ShellData.ini, [Credit] Freeplay=1).
+Wheels: Logitech, Thrustmaster, Fanatec and other wheels SDL knows are
+used by themselves. The defaults suit a Logitech G29 / G923: paddles shift,
+Options is Start, Share is Coin, the H-shifter's gears 1-4. For another
+wheel, map it in CONTROLS. If full lock needs too much rotation, set about
+270 degrees in the wheel's software or raise the steering scale.
 
-If something goes wrong
------------------------
-The shim writes shim.log next to Daytona.exe. Please send it along with
-what happened. A good first run shows, in this order:
+Force feedback: the game's own force feedback (what drove the cabinet's
+motor) goes to a wheel as a constant force and to pads as rumble. Set the
+strength, turn it off or reverse it in CONTROLS.
+
+Free play is on by default; turn it off in OPTIONS to play with coins.
+
+
+6. If something goes wrong
+--------------------------
+The shim writes shim.log next to each Daytona.exe. Please send it along
+with what happened. A good run shows, in this order:
   hook WS2_32.dll!#4 ... (and the other hooks)
   shell: listening on 127.0.0.1:18888
   shell: game connected

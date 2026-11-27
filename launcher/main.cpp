@@ -1,10 +1,9 @@
 // DaytonaLauncher.exe, beside Daytona.exe: the operator settings, the shim's
 // controls, and starting the game.
 //
-//   (no option)  the full-screen, controller-driven launcher under Wine /
-//                Proton (the Steam Deck), the desktop window on Windows
-//   --big        the full-screen launcher
-//   --desktop    the desktop window
+//   (no option)  the full-screen, controller-driven launcher (Windows and
+//                the Steam Deck alike)
+//   --desktop    the desktop window with tabs instead
 //   --play       start the game at once (the edition chosen last)
 #include <windows.h>
 
@@ -23,6 +22,6 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR cmdline, int show) {
         if (!eds.empty()) play(eds[last_edition(eds)]);
         if (in.has_game()) play(in);
     }
-    const bool big = has(L"--big") || (running_under_wine() && !has(L"--desktop"));
+    const bool big = !has(L"--desktop");
     return big ? run_big(in) : run_desktop(in, cmdline, show);
 }

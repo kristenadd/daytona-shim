@@ -35,6 +35,7 @@ std::wstring ini_get(const std::wstring& file, const wchar_t* section, const wch
 bool ini_put(const std::wstring& file, const wchar_t* section, const wchar_t* key, const std::wstring& value);
 std::wstring widen(const char* s);
 std::string narrow(const std::wstring& w);
+std::string ansi(const std::wstring& w);  // for the ANSI file APIs (shim.ini)
 bool exists(const std::wstring& p);
 
 // The game's rules (GameSettings.ini [GameSettings]): the game's own table

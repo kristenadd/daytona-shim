@@ -232,6 +232,12 @@ daytona-shim/
    launcher streams it (half a second queued, wrapping to the loop start;
    the seam's step is 3,547 against steps up to 18,734 nearby) at 80% of
    `[Audio] MusicVolume`, and fades it with the screen on START or exit.
+   **One launcher everywhere:** the full-screen launcher is the default on
+   Windows too (`--desktop` for the window). The window also finds both
+   editions (an edition picker beside the tabs; each tab edits that
+   edition's files and `shim.ini`; switching saves the one shown). INSTALL.txt
+   now starts from one folder layout for Windows and the Deck: the launcher
+   and SDL3.dll at the top, each edition in a subfolder.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.

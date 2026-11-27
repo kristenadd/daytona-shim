@@ -115,7 +115,9 @@ struct App {
     HFONT font = nullptr;
     int dpi = 96;
     std::vector<HWND> page[NumPages];
-    const Install* install = nullptr;
+    const Install* install = nullptr;  // the edition shown: eds[i], or the launcher's own folder
+    std::vector<Install> eds;
+    HWND edition_combo = nullptr, play_button = nullptr;
     std::wstring dir, game_exe, shelldata, gamesettings;
     Edition edition = Edition::Unknown;
     GameOptions opts;
@@ -358,7 +360,7 @@ bool save() {
     }
     bool ok = app.opts.save(*app.install);
     app.cfg = config_from_page();
-    ok = shim::save_config(app.cfg, shim::config_path()) && ok;
+    ok = shim::save_config(app.cfg, ansi(app.dir + L"\\shim.ini")) && ok;
     set_status(ok ? L"Saved." : L"Some settings could not be written (is the folder read-only?).");
     return ok;
 }
@@ -366,6 +368,11 @@ bool save() {
 void start_game() {
     if (!app.install->has_game()) {
         MessageBoxW(app.wnd, L"Daytona.exe is not beside the launcher.", L"Daytona", MB_ICONERROR);
+        return;
+    }
+    if (!app.install->has_shim()) {
+        MessageBoxW(app.wnd, L"Copy dinput8.dll, SDL3.dll and shim.ini next to this edition's Daytona.exe first.",
+                    L"Daytona", MB_ICONERROR);
         return;
     }
     save();
@@ -379,6 +386,7 @@ void start_game() {
         sdl.SDL_Quit();
         sdl.ok = false;
     }
+    remember_edition(*app.install);
     play(*app.install);
 }
 
@@ -520,7 +528,56 @@ void on_timer() {
     update_live();
 }
 
+void build_pages();
+
+// Shows an edition: its files, its shim.ini, the pages rebuilt for it.
+void use_edition(const Install* in) {
+    app.install = in;
+    app.dir = in->dir;
+    app.game_exe = in->game_exe;
+    app.edition = in->edition;
+    app.shelldata = in->shelldata;
+    app.gamesettings = in->gamesettings;
+    app.opts.load(*in);
+    app.cfg = shim::load_config(ansi(in->dir + L"\\shim.ini"));
+    if (app.wnd != nullptr) build_pages();
+}
+
+void build_pages() {
+    detect_stop();
+    for (auto& p : app.page) {
+        for (HWND h : p) DestroyWindow(h);
+        p.clear();
+    }
+    app.rule_combo.clear();
+    for (HWND& v : app.volume) v = nullptr;
+    build_game_page();
+    build_rules_page();
+    build_pad_page();
+    build_wheel_page();
+    // Above the tab control in the z-order, so they draw over it.
+    for (auto& p : app.page)
+        for (HWND h : p) SetWindowPos(h, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    update_percent_labels();
+    show_page(static_cast<int>(SendMessageW(app.tab, TCM_GETCURSEL, 0, 0)));
+    if (app.play_button != nullptr) EnableWindow(app.play_button, app.install->has_game());
+    if (!app.install->has_game()) set_status(L"No Daytona.exe found: put the launcher beside it, or above both editions.");
+    else if (!app.install->has_shim()) set_status(L"Copy dinput8.dll, SDL3.dll and shim.ini next to this edition's Daytona.exe.");
+    else if (!exists(app.shelldata)) set_status(L"ShellData.ini was not found next to the game's folder.");
+    else set_status(L"");
+}
+
 void on_command(HWND from, int code) {
+    if (from == app.edition_combo && code == CBN_SELCHANGE) {
+        // The current edition's changes are kept before the other is shown.
+        save();
+        const int i = static_cast<int>(SendMessageW(from, CB_GETCURSEL, 0, 0));
+        if (i >= 0 && i < static_cast<int>(app.eds.size())) {
+            use_edition(&app.eds[i]);
+            remember_edition(app.eds[i]);
+        }
+        return;
+    }
     if (code != BN_CLICKED) return;
     const std::wstring t = text_of(from);
     if (t == L"Save") save();
@@ -572,14 +629,10 @@ LRESULT CALLBACK proc(HWND w, UINT msg, WPARAM wp, LPARAM lp) {
 
 int run_desktop(const Install& in, const wchar_t* cmdline, int show) {
     HINSTANCE inst = GetModuleHandleW(nullptr);
-    app.install = &in;
-    app.dir = in.dir;
-    app.game_exe = in.game_exe;
-    app.edition = in.edition;
-    app.shelldata = in.shelldata;
-    app.gamesettings = in.gamesettings;
-    app.opts.load(in);
-    app.cfg = shim::load_config(shim::config_path());
+    // Both editions when both are found (the launcher beside one of them, or
+    // above both), as in the full-screen launcher.
+    app.eds = find_editions(in);
+    use_edition(app.eds.empty() ? &in : &app.eds[last_edition(app.eds)]);
 
     SetProcessDPIAware();
     INITCOMMONCONTROLSEX icc{sizeof icc, ICC_TAB_CLASSES | ICC_BAR_CLASSES | ICC_STANDARD_CLASSES};
@@ -608,6 +661,19 @@ int run_desktop(const Install& in, const wchar_t* cmdline, int show) {
     // Only the tab strip: the pages sit on the window's own background.
     app.tab = CreateWindowExW(0, WC_TABCONTROLW, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, S(8), S(8), S(764),
                               S(28), app.wnd, nullptr, inst, nullptr);
+    if (app.eds.size() > 1) {
+        // The edition, beside the tabs (the tab strip gives it room).
+        SetWindowPos(app.tab, nullptr, 0, 0, S(500), S(28), SWP_NOMOVE | SWP_NOZORDER);
+        app.edition_combo = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST,
+                                            S(520), S(8), S(250), S(300), app.wnd, nullptr, inst, nullptr);
+        SendMessageW(app.edition_combo, WM_SETFONT, reinterpret_cast<WPARAM>(app.font), TRUE);
+        for (const Install& e : app.eds)
+            SendMessageW(app.edition_combo, CB_ADDSTRING, 0,
+                         reinterpret_cast<LPARAM>(e.edition == Edition::Nse2019 ? L"New Season Edition (2019)"
+                                                                                 : L"Daytona Championship USA (2017)"));
+        for (std::size_t i = 0; i < app.eds.size(); ++i)
+            if (&app.eds[i] == app.install) SendMessageW(app.edition_combo, CB_SETCURSEL, i, 0);
+    }
     SendMessageW(app.tab, WM_SETFONT, reinterpret_cast<WPARAM>(app.font), TRUE);
     const wchar_t* const tabs[NumPages] = {L"Game", L"Rules", L"Controller", L"Wheel"};
     for (int i = 0; i < NumPages; ++i) {
@@ -617,14 +683,6 @@ int run_desktop(const Install& in, const wchar_t* cmdline, int show) {
         SendMessageW(app.tab, TCM_INSERTITEMW, i, reinterpret_cast<LPARAM>(&item));
     }
 
-    build_game_page();
-    build_rules_page();
-    build_pad_page();
-    build_wheel_page();
-    // Above the tab control in the z-order, so they draw over it.
-    for (auto& p : app.page)
-        for (HWND h : p) SetWindowPos(h, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-
     const auto bottom = [&](const wchar_t* text, int x, int w) {
         HWND b = CreateWindowExW(0, L"BUTTON", text, WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, S(x), S(492),
                                  S(w), S(32), app.wnd, nullptr, inst, nullptr);
@@ -632,18 +690,11 @@ int run_desktop(const Install& in, const wchar_t* cmdline, int show) {
         return b;
     };
     bottom(L"Save", 560, 90);
-    HWND play_button = bottom(L"Play", 660, 110);
+    HWND play_button = app.play_button = bottom(L"Play", 660, 110);
     app.status = CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE, S(12), S(500), S(530), S(24), app.wnd,
                                  nullptr, inst, nullptr);
     SendMessageW(app.status, WM_SETFONT, reinterpret_cast<WPARAM>(app.font), TRUE);
-    if (!exists(app.game_exe)) {
-        set_status(L"Put DaytonaLauncher.exe in the folder that holds Daytona.exe.");
-        EnableWindow(play_button, FALSE);
-    } else if (!exists(app.shelldata)) {
-        set_status(L"ShellData.ini was not found next to the game's folder.");
-    }
-
-    update_percent_labels();
+    build_pages();
     int first = PageGame;
     if (cmdline != nullptr) {
         const wchar_t* const names[NumPages] = {L"--page=game", L"--page=rules", L"--page=controller", L"--page=wheel"};
@@ -652,7 +703,7 @@ int run_desktop(const Install& in, const wchar_t* cmdline, int show) {
     }
     SendMessageW(app.tab, TCM_SETCURSEL, first, 0);
     show_page(first);
-    sdl.start(app.dir);
+    sdl.start(in.dir);  // SDL3.dll beside the launcher
     SetTimer(app.wnd, 1, 16, nullptr);
     ShowWindow(app.wnd, show);
     SetFocus(play_button);

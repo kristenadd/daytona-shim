@@ -27,6 +27,12 @@ std::wstring full_path(const std::wstring& p) {
 
 }  // namespace
 
+std::string ansi(const std::wstring& w) {
+    char buf[MAX_PATH * 2] = {};
+    WideCharToMultiByte(CP_ACP, 0, w.c_str(), -1, buf, sizeof buf, nullptr, nullptr);
+    return buf;
+}
+
 bool exists(const std::wstring& p) { return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES; }
 
 Edition edition_of(const std::wstring& exe) {
