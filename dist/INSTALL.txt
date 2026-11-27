@@ -28,7 +28,17 @@ screen, made for a controller: the title with START and OPTIONS, and one
 list of the game's settings. D-pad or left stick to move, left / right to
 change a setting, A (Cross on PlayStation) to select, B (Circle) to go back.
 On a keyboard: arrows, Enter, Esc or Backspace. Settings are saved when you
-leave the list. The button prompts follow the pad you use.
+leave the list. The button prompts follow the pad you use. It fills the
+screen at its own resolution: 1280x800 on the Deck, 1920x1080 (or any
+other size) elsewhere.
+
+CONTROLS on the title screen sets up the pad and wheel for the chosen
+edition (its shim.ini): every action of the pad, the wheel's axes and
+buttons, steering scale, pedals, and force feedback / rumble strength.
+Left / right goes through the choices; A (Cross) on a pad action or a
+wheel axis or button waits for you to press the button, or move the stick,
+trigger, wheel or pedal, that you want (Esc on the keyboard cancels). The
+top of the screen shows what the game will get from your wheel.
 
 Both editions from one launcher: with the 2017 and 2019 games both
 installed, the edition under the logo is a choice (left / right). START
@@ -53,8 +63,7 @@ On Windows it opens as a window with tabs:
               shows what the game will get from your wheel
   Play        saves, starts Daytona.exe, and closes when the game does
 Options: --play starts the game at once (the edition chosen last), --big opens the full-screen
-launcher on Windows, --desktop the window under Proton. (Pad and wheel
-controls are set in the window, or in shim.ini.)
+launcher on Windows, --desktop the window under Proton. 
 
 Run on Windows
 --------------

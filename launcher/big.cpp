@@ -1,5 +1,7 @@
 // The full-screen launcher, for the Steam Deck (and big screens): the title
-// with START and OPTIONS, and one list of the game's settings. Driven by a
+// with the edition, START, OPTIONS (one list of the game's settings) and
+// CONTROLS (pad layout, wheel, force feedback: the edition's shim.ini, with
+// press-to-map). Driven by a
 // pad (d-pad or left stick; A / Cross selects, B / Circle goes back) or the
 // keyboard (arrows, Enter, Esc or Backspace).
 //
@@ -7,13 +9,15 @@
 // other screens. Text is stb_truetype over two OFL fonts and the logo is
 // launcher/logo.png, all built into the executable as resources.
 //
-// The window is borderless full screen at the display's own size, and the
-// picture is laid out at 1280x800: on the Deck that fills the screen 1:1,
-// elsewhere it is letterboxed.
+// The window is borderless full screen at the display's own size. The
+// layout is 800 units high and as wide as the display's shape: 1280x800 on
+// the Deck (1:1), 1422x800 units drawn at 1920x1080 on a 16:9 screen; text is
+// baked at the display's pixels.
 //
 // For testing: DAYTONA_LAUNCHER_SHOT=<file.bmp> opens a window instead and
-// keeps saving the latest frame, DAYTONA_LAUNCHER_GLYPHS=ps|xbox|nintendo
-// shows that pad's prompts, and --screen=options opens on the list.
+// keeps saving the latest frame, DAYTONA_LAUNCHER_SIZE=1920x1080 sets the
+// window's size, DAYTONA_LAUNCHER_GLYPHS=ps|xbox|nintendo shows that pad's
+// prompts, and --screen=options|controls opens on that list.
 #include <windows.h>
 
 #include <SDL3/SDL.h>
@@ -40,12 +44,18 @@
 #include "stb_image.h"
 #pragma clang diagnostic pop
 
+#include "bindings.hpp"
+#include "config.hpp"
 #include "settings.hpp"
 
 namespace launcher {
 namespace {
 
-constexpr float kW = 1280, kH = 800;
+// The layout is 800 units high and as wide as the display's shape (1280 on
+// the Deck's 16:10, about 1422 on 16:9); kScale turns units into pixels.
+float kW = 1280;
+constexpr float kH = 800;
+float kScale = 1;
 constexpr float kItalic = 0.21f;  // the lean of headings and menu items
 
 // --- Colours ------------------------------------------------------------------
@@ -145,12 +155,15 @@ struct Font {
     SDL_Texture* tex = nullptr;
     stbtt_packedchar chars[96] = {};
     int atlas = 0;
-    float size = 0, ascent = 0;
+    float size = 0, ascent = 0;  // in layout units
+    float inv = 1;               // the atlas is baked at the display's pixels: 1 / kScale
 
-    bool load(const std::vector<unsigned char>& ttf, float px) {
+    bool load(const std::vector<unsigned char>& ttf, float units) {
         if (ttf.empty()) return false;
-        size = px;
-        atlas = px > 40 ? 2048 : 1024;
+        size = units;
+        const float px = units * kScale;
+        inv = 1.0f / kScale;
+        atlas = px > 90 ? 4096 : px > 40 ? 2048 : 1024;
         std::vector<unsigned char> alpha(static_cast<std::size_t>(atlas) * atlas);
         stbtt_pack_context pc;
         if (!stbtt_PackBegin(&pc, alpha.data(), atlas, atlas, 0, 2, nullptr)) return false;
@@ -161,7 +174,7 @@ struct Font {
         stbtt_InitFont(&info, ttf.data(), 0);
         int asc = 0, desc = 0, gap = 0;
         stbtt_GetFontVMetrics(&info, &asc, &desc, &gap);
-        ascent = asc * stbtt_ScaleForPixelHeight(&info, px);
+        ascent = asc * stbtt_ScaleForPixelHeight(&info, px) * inv;
         std::vector<unsigned char> rgba(alpha.size() * 4);
         for (std::size_t i = 0; i < alpha.size(); ++i) {
             rgba[4 * i] = rgba[4 * i + 1] = rgba[4 * i + 2] = 255;
@@ -182,7 +195,7 @@ struct Font {
             stbtt_aligned_quad q;
             stbtt_GetPackedQuad(chars, atlas, atlas, ch - 32, &x, &y, &q, 0);
         }
-        return x;
+        return x * inv;
     }
 
     // `top` is the top of the line (the baseline is `ascent` below it).
@@ -191,11 +204,15 @@ struct Font {
         std::vector<SDL_Vertex> v;
         std::vector<int> idx;
         const float base = top + ascent;
-        float px = x, py = base;
+        float px = 0, py = 0;  // in atlas pixels from the origin
         for (unsigned char ch : s) {
             if (ch < 32 || ch >= 128) continue;
             stbtt_aligned_quad q;
             stbtt_GetPackedQuad(chars, atlas, atlas, ch - 32, &px, &py, &q, 0);
+            q.x0 = x + q.x0 * inv;
+            q.x1 = x + q.x1 * inv;
+            q.y0 = base + q.y0 * inv;
+            q.y1 = base + q.y1 * inv;
             const int b = static_cast<int>(v.size());
             const float k0 = skew * (base - q.y0), k1 = skew * (base - q.y1);
             v.push_back(vtx(q.x0 + k0, q.y0, c, q.s0, q.t0));
@@ -225,6 +242,7 @@ enum class Glyphs { Keyboard, Xbox, PlayStation, Nintendo };
 
 struct Input {
     Glyphs glyphs = Glyphs::Keyboard;
+    std::vector<SDL_Joystick*> sticks;  // joysticks without a pad layout (wheels)
     // The left stick, with key-like repeat.
     int stick_dir = 0;  // 0 none, else the Action
     Uint64 stick_next = 0;
@@ -241,6 +259,18 @@ struct Input {
         switch (e.type) {
             case SDL_EVENT_GAMEPAD_ADDED:
                 SDL_OpenGamepad(e.gdevice.which);
+                return Action::None;
+            case SDL_EVENT_JOYSTICK_ADDED:
+                if (!SDL_IsGamepad(e.jdevice.which))
+                    if (SDL_Joystick* j = SDL_OpenJoystick(e.jdevice.which)) sticks.push_back(j);
+                return Action::None;
+            case SDL_EVENT_JOYSTICK_REMOVED:
+                for (auto it = sticks.begin(); it != sticks.end(); ++it)
+                    if (SDL_GetJoystickID(*it) == e.jdevice.which) {
+                        SDL_CloseJoystick(*it);
+                        sticks.erase(it);
+                        break;
+                    }
                 return Action::None;
             case SDL_EVENT_KEY_DOWN:
                 glyphs = Glyphs::Keyboard;
@@ -319,12 +349,21 @@ struct Input {
 
 // --- The options list -------------------------------------------------------------
 
+// What a list row edits.
+enum class Ctl { None, FreePlay, Volume, Rule, PadBind, WheelAxis, WheelButton, Scale, PedalRest, Ffb, Invert, Strength, Rumble };
+
 struct Row {
     enum Kind { Header, Toggle, Choice, Slider, Done } kind;
     std::string label;
-    int rule = -1;    // Choice: index into rules()
-    int volume = -1;  // Slider: index into GameOptions::volume
+    Ctl ctl = Ctl::None;
+    int index = -1;  // the rule, volume, action, axis or button
+    bool mappable() const { return ctl == Ctl::PadBind || ctl == Ctl::WheelAxis || ctl == Ctl::WheelButton; }
 };
+
+std::string upper(std::string s) {
+    for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return s;
+}
 
 // Friendlier names for the rule values.
 std::string value_name(const std::string& key, const std::string& v) {
@@ -342,21 +381,53 @@ std::string value_name(const std::string& key, const std::string& v) {
     return v;
 }
 
-std::vector<Row> build_rows(const GameOptions& o) {
+std::vector<Row> option_rows(const GameOptions& o) {
     std::vector<Row> rows;
     rows.push_back({Row::Header, "GAME"});
-    rows.push_back({Row::Toggle, "FREE PLAY"});
+    rows.push_back({Row::Toggle, "FREE PLAY", Ctl::FreePlay});
     if (o.has_audio) {
-        rows.push_back({Row::Slider, "MUSIC VOLUME", -1, 0});
-        rows.push_back({Row::Slider, "EFFECTS VOLUME", -1, 1});
-        rows.push_back({Row::Slider, "VOICE VOLUME", -1, 2});
+        rows.push_back({Row::Slider, "MUSIC VOLUME", Ctl::Volume, 0});
+        rows.push_back({Row::Slider, "EFFECTS VOLUME", Ctl::Volume, 1});
+        rows.push_back({Row::Slider, "VOICE VOLUME", Ctl::Volume, 2});
     }
     rows.push_back({Row::Header, "RULES"});
     const auto& r = rules();
-    for (std::size_t i = 0; i < r.size(); ++i) rows.push_back({Row::Choice, narrow(r[i].key), static_cast<int>(i)});
+    for (std::size_t i = 0; i < r.size(); ++i) rows.push_back({Row::Choice, narrow(r[i].key), Ctl::Rule, static_cast<int>(i)});
     rows.push_back({Row::Done, "DONE"});
     return rows;
 }
+
+std::vector<Row> control_rows() {
+    std::vector<Row> rows;
+    rows.push_back({Row::Header, "CONTROLLER"});
+    for (int i = 0; i < shim::kNumActions; ++i) rows.push_back({Row::Choice, upper(shim::kActionLabels[i]), Ctl::PadBind, i});
+    rows.push_back({Row::Header, "WHEEL"});
+    rows.push_back({Row::Choice, "STEERING AXIS", Ctl::WheelAxis, 0});
+    rows.push_back({Row::Choice, "GAS AXIS", Ctl::WheelAxis, 1});
+    rows.push_back({Row::Choice, "BRAKE AXIS", Ctl::WheelAxis, 2});
+    rows.push_back({Row::Choice, "STEERING SCALE", Ctl::Scale});
+    rows.push_back({Row::Choice, "PEDALS AT REST", Ctl::PedalRest});
+    for (int i = 0; i < 12; ++i) rows.push_back({Row::Choice, upper(shim::kActionLabels[3 + i]) + " BUTTON", Ctl::WheelButton, i});
+    rows.push_back({Row::Header, "FORCE FEEDBACK"});
+    rows.push_back({Row::Toggle, "FORCE FEEDBACK", Ctl::Ffb});
+    rows.push_back({Row::Toggle, "REVERSE IT", Ctl::Invert});
+    rows.push_back({Row::Slider, "WHEEL STRENGTH", Ctl::Strength});
+    rows.push_back({Row::Slider, "PAD RUMBLE", Ctl::Rumble});
+    rows.push_back({Row::Done, "DONE"});
+    return rows;
+}
+
+std::string acp(const std::wstring& w) {
+    char buf[MAX_PATH * 2] = {};
+    WideCharToMultiByte(CP_ACP, 0, w.c_str(), -1, buf, sizeof buf, nullptr, nullptr);
+    return buf;
+}
+
+// A device's buttons and axes, for spotting the one that moves.
+struct DeviceState {
+    std::vector<int> axes;
+    std::vector<bool> buttons;
+};
 
 // --- The screens -----------------------------------------------------------------
 
@@ -369,8 +440,15 @@ struct Big {
     float logo_w = 0, logo_h = 0;
     GameOptions opts;
     Input input;
-    enum Screen { Title, Options } screen = Title;
-    int title_sel = 1;  // 0 the edition, 1 START, 2 OPTIONS
+    enum Screen { Title, Options, Controls } screen = Title;
+    int title_sel = 1;  // 0 the edition, 1 START, 2 OPTIONS, 3 CONTROLS
+    shim::Config cfg;   // this edition's shim.ini
+    bool cfg_dirty = false;
+    // Press-to-map: the row waiting for an input, and the devices' state
+    // when it began.
+    int capture_row = -1;
+    Uint64 capture_at = 0, quiet_until = 0;
+    std::vector<std::pair<SDL_JoystickID, DeviceState>> capture_base, capture_prev;
     std::vector<Row> rows;
     int row_sel = 1;
     float scroll = 0;  // rows, eased toward the target
@@ -396,7 +474,7 @@ struct Big {
         } stripes[] = {{kYellow, 0}, {kOrange, 18}, {kRed, 36}};
         // Low, under the menu, rising to the right.
         for (const auto& s : stripes)
-            quad({0, 682 + s.y * 0.6f}, {kW, 652 + s.y * 0.6f}, {kW, 661 + s.y * 0.6f}, {0, 691 + s.y * 0.6f}, s.c, s.c,
+            quad({0, 704 + s.y * 0.45f}, {kW, 684 + s.y * 0.45f}, {kW, 691 + s.y * 0.45f}, {0, 711 + s.y * 0.45f}, s.c, s.c,
                  s.c, s.c);
         for (const auto& s : stripes)
             quad({kW * 0.55f, 0 + s.y * 0.8f}, {kW, s.y * 0.8f}, {kW, 14 + s.y * 0.8f}, {kW * 0.55f + 40, 14 + s.y * 0.8f},
@@ -473,6 +551,21 @@ struct Big {
 
     bool can_switch() const { return eds.size() > 1; }
 
+    std::string cfg_path() const { return acp(in->dir + L"\\shim.ini"); }
+    void load_cfg() {
+        cfg = shim::load_config(cfg_path());
+        cfg_dirty = false;
+    }
+
+    void open_list(Screen which) {
+        screen = which;
+        rows = which == Options ? option_rows(opts) : control_rows();
+        row_sel = 1;
+        scroll = 0;
+        note.clear();
+        fade_start = SDL_GetTicks();
+    }
+
     void switch_edition(int dir) {
         if (!can_switch()) return;
         if (dirty) opts.save(*in);
@@ -481,8 +574,7 @@ struct Big {
         in = &eds[ed];
         remember_edition(*in);
         opts.load(*in);
-        rows = build_rows(opts);
-        row_sel = 1;
+        load_cfg();
         note.clear();
     }
 
@@ -516,14 +608,14 @@ struct Big {
             }
         }
         if (!note.empty()) small_font.draw(note, 40, kH - 36, kYellow, kItalic * 0.5f);
-        const char* items[2] = {"START", "OPTIONS"};
-        for (int i = 0; i < 2; ++i) {
-            const float y = 510 + i * 70;
+        const char* items[3] = {"START", "OPTIONS", "CONTROLS"};
+        for (int i = 0; i < 3; ++i) {
+            const float y = 484 + i * 64;
             const float w = title_font.width(items[i]);
             const float x = (kW - w) / 2;
             const bool sel = title_sel == i + 1;
             if (sel) {
-                para(x - 54, y - 2, w + 96, 66, 16, kYellow, kOrange);
+                para(x - 54, y, w + 96, 62, 16, kYellow, kOrange);
                 // START pulses as the arcade's "PRESS START"; it flashes once chosen.
                 const bool pulse = i == 0 && !starting && std::fmod(t(), 1.0f) > 0.6f;
                 const bool flash = starting && std::fmod(t() * 8, 1.0f) > 0.5f;
@@ -536,21 +628,86 @@ struct Big {
     }
 
     std::string row_value(const Row& r) const {
-        switch (r.kind) {
-            case Row::Toggle: return opts.freeplay ? "ON" : "OFF";
-            case Row::Choice: {
-                const Rule& rule = rules()[r.rule];
-                return value_name(narrow(rule.key), narrow(rule.options[opts.rule[r.rule]]));
+        switch (r.ctl) {
+            case Ctl::FreePlay: return opts.freeplay ? "ON" : "OFF";
+            case Ctl::Rule: {
+                const Rule& rule = rules()[r.index];
+                return value_name(narrow(rule.key), narrow(rule.options[opts.rule[r.index]]));
             }
+            case Ctl::PadBind: {
+                const shim::PadBinding& b = cfg.pad[r.index];
+                if (b.kind == shim::PadBinding::Button) return upper(shim::kPadButtons[b.index].label);
+                if (b.kind == shim::PadBinding::Axis) return upper(shim::kPadAxes[b.index].label);
+                return "NONE";
+            }
+            case Ctl::WheelAxis: {
+                const int a = r.index == 0 ? cfg.steering_axis : r.index == 1 ? cfg.gas_axis : cfg.brake_axis;
+                return "AXIS " + std::to_string(a);
+            }
+            case Ctl::WheelButton:
+                return cfg.buttons[r.index] < 0 ? "NONE" : "BUTTON " + std::to_string(cfg.buttons[r.index]);
+            case Ctl::Scale: {
+                char b[16];
+                std::snprintf(b, sizeof b, "%.1f", cfg.steering_scale);
+                return b;
+            }
+            case Ctl::PedalRest: return cfg.pedal_rest > 0 ? "HIGH" : cfg.pedal_rest < 0 ? "LOW" : "AUTO";
+            case Ctl::Ffb: return cfg.ffb ? "ON" : "OFF";
+            case Ctl::Invert: return cfg.ffb_invert ? "ON" : "OFF";
             default: return "";
         }
     }
 
-    void draw_options() {
+    // Sliders: 0..1 and the number shown.
+    float slider_frac(const Row& r) const {
+        switch (r.ctl) {
+            case Ctl::Volume: return opts.volume[r.index] / 100.0f;
+            case Ctl::Strength: return cfg.ffb_strength / 2.0f;
+            case Ctl::Rumble: return cfg.rumble / 2.0f;
+            default: return 0;
+        }
+    }
+    std::string slider_text(const Row& r) const {
+        switch (r.ctl) {
+            case Ctl::Volume: return std::to_string(opts.volume[r.index]);
+            case Ctl::Strength: return std::to_string(static_cast<int>(cfg.ffb_strength * 100 + 0.5f)) + "%";
+            case Ctl::Rumble: return std::to_string(static_cast<int>(cfg.rumble * 100 + 0.5f)) + "%";
+            default: return "";
+        }
+    }
+
+    // The first wheel, as the game will see it with these settings.
+    std::string wheel_status() const {
+        for (SDL_Joystick* j : input.sticks) {
+            const int axes = SDL_GetNumJoystickAxes(j);
+            const auto raw = [&](int a) { return a >= 0 && a < axes ? SDL_GetJoystickAxis(j, a) : 0; };
+            const auto rest_high = [&](int a) {
+                if (cfg.pedal_rest != 0) return cfg.pedal_rest > 0;
+                Sint16 v = 0;
+                if (a >= 0 && a < axes && SDL_GetJoystickAxisInitialState(j, a, &v) && std::abs(v) > 16000) return v > 0;
+                return true;
+            };
+            const auto pedal = [&](int a) {
+                const int v = raw(a);
+                const float t = rest_high(a) ? (32767.0f - v) / 65535.0f : (v + 32768.0f) / 65535.0f;
+                return std::clamp(t, 0.0f, 1.0f);
+            };
+            const float steer = std::clamp(raw(cfg.steering_axis) / 32767.0f * cfg.steering_scale, -1.0f, 1.0f);
+            const char* name = SDL_GetJoystickName(j);
+            char b[200];
+            std::snprintf(b, sizeof b, "%s   STEER %+.2f   GAS %.2f   BRAKE %.2f", upper(name ? name : "WHEEL").c_str(),
+                          steer, pedal(cfg.gas_axis), pedal(cfg.brake_axis));
+            return b;
+        }
+        return "NO WHEEL CONNECTED";
+    }
+
+    void draw_list() {
         // The header tab and a small logo chip.
         para(40, 34, 420, 64, 18, kRed, rgb(0xB0141C));
-        heading_font.shadowed("OPTIONS", 84, 44, kWhite, kItalic);
-        small_font.shadowed(in->name(), 500, 58, kYellow, kItalic, 2);
+        heading_font.shadowed(screen == Options ? "OPTIONS" : "CONTROLS", 84, 44, kWhite, kItalic);
+        small_font.shadowed(in->name(), 500, 44, kYellow, kItalic, 2);
+        if (screen == Controls) small_font.shadowed(wheel_status(), 500, 74, kWhite, kItalic * 0.5f, 2);
         if (logo != nullptr) {
             para(kW - 300, 28, 250, 82, 18, kWhite);
             const float w = 176, h = w * logo_h / logo_w;
@@ -584,19 +741,19 @@ struct Big {
             else row_font.shadowed(r.label, x + 34, ty, text, kItalic * 0.6f, 2);
             const float right = x + w - 30;
             if (r.kind == Row::Slider) {
-                const int v = opts.volume[r.volume];
-                const std::string num = std::to_string(v);
-                const float bw = 300, bx = right - bw - 70, by = y + row_h / 2 - 7;
+                const std::string num = slider_text(r);
+                const float bw = 300, bx = right - bw - 90, by = y + row_h / 2 - 7;
                 para(bx, by, bw, 14, 6, sel ? rgb(0x000000, 0.25f) : rgb(0xFFFFFF, 0.2f));
-                para(bx, by, bw * v / 100.0f, 14, 6, sel ? kRed : kYellow, sel ? rgb(0xB0141C) : kOrange);
+                para(bx, by, bw * slider_frac(r), 14, 6, sel ? kRed : kYellow, sel ? rgb(0xB0141C) : kOrange);
                 const float nw = row_font.width(num);
                 row_font.draw(num, right - nw, ty, text, kItalic * 0.6f);
                 if (sel) {
                     triangle({bx - 34, y + row_h / 2}, {bx - 20, y + row_h / 2 - 10}, {bx - 20, y + row_h / 2 + 10}, kBlack);
-                    triangle({right - 52, y + row_h / 2}, {right - 66, y + row_h / 2 - 10}, {right - 66, y + row_h / 2 + 10}, kBlack);
+                    triangle({right - 72, y + row_h / 2}, {right - 86, y + row_h / 2 - 10}, {right - 86, y + row_h / 2 + 10}, kBlack);
                 }
             } else if (r.kind != Row::Done) {
-                const std::string v = row_value(r);
+                const bool waiting = static_cast<int>(i) == capture_row;
+                const std::string v = waiting ? (std::fmod(t() * 2, 1.0f) > 0.3f ? "PRESS..." : "") : row_value(r);
                 const float vw = row_font.width(v);
                 const float vx = right - vw - (sel ? 34 : 0);
                 if (sel) {
@@ -618,22 +775,155 @@ struct Big {
         SDL_FRect thumb{kW - 70, top + 4 + pos * track_h * (1 - frac), 6, track_h * frac};
         SDL_SetRenderDrawColor(ren, 255, 212, 0, 255);
         SDL_RenderFillRect(ren, &thumb);
+        if (capture_row >= 0) {
+            const int left = 8 - static_cast<int>((SDL_GetTicks() - capture_at) / 1000);
+            const std::string what = rows[capture_row].ctl == Ctl::PadBind     ? "PRESS THE PAD BUTTON, OR MOVE THE STICK OR TRIGGER, TO USE"
+                                     : rows[capture_row].ctl == Ctl::WheelAxis ? "TURN THE WHEEL OR PRESS THE PEDAL ALL THE WAY"
+                                                                               : "PRESS THE WHEEL BUTTON TO USE";
+            small_font.draw(what + "  (" + std::to_string(std::max(left, 0)) + ")  ESC CANCELS", 40, kH - 36, kYellow,
+                            kItalic * 0.5f);
+            return;
+        }
+        if (!note.empty()) small_font.draw(note, 40, kH - 36, kYellow, kItalic * 0.5f);
         footer(rows[row_sel].kind != Row::Done);
+    }
+
+    // --- Press-to-map ---
+
+    std::vector<std::pair<SDL_JoystickID, DeviceState>> device_states(bool pads) const {
+        std::vector<std::pair<SDL_JoystickID, DeviceState>> out;
+        if (pads) {
+            int n = 0;
+            SDL_JoystickID* ids = SDL_GetGamepads(&n);
+            for (int i = 0; ids != nullptr && i < n; ++i) {
+                SDL_Gamepad* p = SDL_GetGamepadFromID(ids[i]);
+                if (p == nullptr) continue;
+                DeviceState d;
+                for (const auto& a : shim::kPadAxes) d.axes.push_back(SDL_GetGamepadAxis(p, a.sdl));
+                for (const auto& b : shim::kPadButtons) d.buttons.push_back(SDL_GetGamepadButton(p, b.sdl));
+                out.push_back({ids[i], d});
+            }
+            SDL_free(ids);
+        } else {
+            for (SDL_Joystick* j : input.sticks) {
+                DeviceState d;
+                for (int a = 0; a < SDL_GetNumJoystickAxes(j); ++a) d.axes.push_back(SDL_GetJoystickAxis(j, a));
+                for (int b = 0; b < SDL_GetNumJoystickButtons(j); ++b) d.buttons.push_back(SDL_GetJoystickButton(j, b));
+                out.push_back({SDL_GetJoystickID(j), d});
+            }
+        }
+        return out;
+    }
+
+    void capture_start() {
+        capture_row = row_sel;
+        capture_at = SDL_GetTicks();
+        capture_base = device_states(rows[row_sel].ctl == Ctl::PadBind);
+        capture_prev = capture_base;
+    }
+
+    void capture_end(const char* message, bool quiet = true) {
+        capture_row = -1;
+        if (quiet) quiet_until = SDL_GetTicks() + 400;  // the press that mapped is not also a move
+        note = message;
+    }
+
+    void capture_poll() {
+        if (capture_row < 0) return;
+        const Uint64 now = SDL_GetTicks();
+        if (now - capture_at > 8000) return capture_end("NOTHING PRESSED");
+        const Row& r = rows[capture_row];
+        const auto cur = device_states(r.ctl == Ctl::PadBind);
+        const bool settle = now - capture_at < 200;
+        for (const auto& [id, d] : cur) {
+            const DeviceState* base = nullptr;
+            const DeviceState* prev = nullptr;
+            for (const auto& [bid, bd] : capture_base) if (bid == id) base = &bd;
+            for (const auto& [pid, pd] : capture_prev) if (pid == id) prev = &pd;
+            if (base == nullptr || prev == nullptr || settle) continue;
+            for (std::size_t b = 0; b < d.buttons.size() && b < prev->buttons.size(); ++b) {
+                if (!d.buttons[b] || prev->buttons[b]) continue;
+                if (r.ctl == Ctl::PadBind && r.index != 0) {
+                    cfg.pad[r.index] = {shim::PadBinding::Button, static_cast<std::uint8_t>(b)};
+                } else if (r.ctl == Ctl::WheelButton) {
+                    cfg.buttons[r.index] = static_cast<int>(b);
+                } else {
+                    continue;
+                }
+                cfg_dirty = true;
+                return capture_end("SET");
+            }
+            for (std::size_t a = 0; a < d.axes.size() && a < base->axes.size(); ++a) {
+                const int moved = std::abs(d.axes[a] - base->axes[a]);
+                if (r.ctl == Ctl::PadBind && moved > 20000) {
+                    const bool trigger = shim::kPadAxes[a].sdl == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ||
+                                         shim::kPadAxes[a].sdl == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
+                    if ((r.index == 0) == trigger) continue;  // steering takes a stick, the rest a trigger
+                    cfg.pad[r.index] = {shim::PadBinding::Axis, static_cast<std::uint8_t>(a)};
+                } else if (r.ctl == Ctl::WheelAxis && moved > 16000) {
+                    (r.index == 0 ? cfg.steering_axis : r.index == 1 ? cfg.gas_axis : cfg.brake_axis) = static_cast<int>(a);
+                } else {
+                    continue;
+                }
+                cfg_dirty = true;
+                return capture_end("SET");
+            }
+        }
+        capture_prev = cur;
     }
 
     void change(int dir) {
         Row& r = rows[row_sel];
-        switch (r.kind) {
-            case Row::Toggle: opts.freeplay = !opts.freeplay; break;
-            case Row::Slider: opts.volume[r.volume] = std::clamp(opts.volume[r.volume] + 5 * dir, 0, 100); break;
-            case Row::Choice: {
-                const int n = static_cast<int>(rules()[r.rule].options.size());
-                opts.rule[r.rule] = (opts.rule[r.rule] + dir + n) % n;
+        switch (r.ctl) {
+            case Ctl::FreePlay: opts.freeplay = !opts.freeplay; break;
+            case Ctl::Volume: opts.volume[r.index] = std::clamp(opts.volume[r.index] + 5 * dir, 0, 100); break;
+            case Ctl::Rule: {
+                const int n = static_cast<int>(rules()[r.index].options.size());
+                opts.rule[r.index] = (opts.rule[r.index] + dir + n) % n;
                 break;
             }
+            default: break;
+        }
+        if (r.ctl == Ctl::FreePlay || r.ctl == Ctl::Volume || r.ctl == Ctl::Rule) {
+            dirty = true;
+            return;
+        }
+        switch (r.ctl) {
+            case Ctl::PadBind: {
+                // Through none, the buttons, then the axes.
+                const int n = 1 + shim::kNumPadButtons + shim::kNumPadAxes;
+                const shim::PadBinding& b = cfg.pad[r.index];
+                int i = b.kind == shim::PadBinding::Button ? 1 + b.index
+                        : b.kind == shim::PadBinding::Axis ? 1 + shim::kNumPadButtons + b.index
+                                                           : 0;
+                i = (i + dir + n) % n;
+                cfg.pad[r.index] = i == 0 ? shim::PadBinding{}
+                                   : i <= shim::kNumPadButtons
+                                       ? shim::PadBinding{shim::PadBinding::Button, static_cast<std::uint8_t>(i - 1)}
+                                       : shim::PadBinding{shim::PadBinding::Axis,
+                                                          static_cast<std::uint8_t>(i - 1 - shim::kNumPadButtons)};
+                break;
+            }
+            case Ctl::WheelAxis: {
+                int& a = r.index == 0 ? cfg.steering_axis : r.index == 1 ? cfg.gas_axis : cfg.brake_axis;
+                a = (a + dir + 8) % 8;
+                break;
+            }
+            case Ctl::WheelButton: cfg.buttons[r.index] = std::clamp(cfg.buttons[r.index] + dir, -1, 31); break;
+            case Ctl::Scale: {
+                float v = std::round((cfg.steering_scale + 0.1f * dir) * 10) / 10;
+                if (std::fabs(v) < 0.05f) v = 0.1f * dir;  // never 0
+                cfg.steering_scale = std::clamp(v, -3.0f, 3.0f);
+                break;
+            }
+            case Ctl::PedalRest: cfg.pedal_rest = cfg.pedal_rest == 0 ? 1 : cfg.pedal_rest > 0 ? -1 : 0; break;
+            case Ctl::Ffb: cfg.ffb = !cfg.ffb; break;
+            case Ctl::Invert: cfg.ffb_invert = !cfg.ffb_invert; break;
+            case Ctl::Strength: cfg.ffb_strength = std::clamp(cfg.ffb_strength + 0.1f * dir, 0.0f, 2.0f); break;
+            case Ctl::Rumble: cfg.rumble = std::clamp(cfg.rumble + 0.1f * dir, 0.0f, 2.0f); break;
             default: return;
         }
-        dirty = true;
+        cfg_dirty = true;
     }
 
     void move(int dir) {
@@ -643,24 +933,33 @@ struct Big {
         row_sel = i;
     }
 
-    void leave_options() {
-        if (dirty) note = opts.save(*in) ? "SETTINGS SAVED" : "SETTINGS COULD NOT BE SAVED";
-        dirty = false;
+    void leave_list() {
+        bool ok = true, saved = dirty || cfg_dirty;
+        if (dirty) ok = opts.save(*in) && ok;
+        if (cfg_dirty) ok = shim::save_config(cfg, cfg_path()) && ok;
+        dirty = cfg_dirty = false;
+        note = !saved ? "" : ok ? "SETTINGS SAVED" : "SETTINGS COULD NOT BE SAVED";
+        title_sel = screen == Options ? 2 : 3;
         screen = Title;
-        title_sel = 2;
         fade_start = SDL_GetTicks();
     }
 
     // Returns false to quit.
     bool act(Action a) {
         if (a == Action::None || starting) return true;
+        if (capture_row >= 0) {
+            // Only the keyboard cancels: any pad button may be the one to map.
+            if (a == Action::Back && input.glyphs == Glyphs::Keyboard) capture_end("", false);
+            return true;
+        }
+        if (SDL_GetTicks() < quiet_until) return true;
         if (screen == Title) {
             switch (a) {
                 case Action::Up:
                     if (title_sel > (can_switch() ? 0 : 1)) --title_sel;
                     break;
                 case Action::Down:
-                    if (title_sel < 2) ++title_sel;
+                    if (title_sel < 3) ++title_sel;
                     break;
                 case Action::Left:
                 case Action::Right:
@@ -681,9 +980,7 @@ struct Big {
                         starting = true;
                         start_at = SDL_GetTicks();
                     } else {
-                        screen = Options;
-                        note.clear();
-                        fade_start = SDL_GetTicks();
+                        open_list(title_sel == 2 ? Options : Controls);
                     }
                     break;
                 case Action::Back: return false;
@@ -697,10 +994,11 @@ struct Big {
             case Action::Left: change(-1); break;
             case Action::Right: change(1); break;
             case Action::Confirm:
-                if (rows[row_sel].kind == Row::Done) leave_options();
+                if (rows[row_sel].kind == Row::Done) leave_list();
+                else if (rows[row_sel].mappable()) capture_start();
                 else change(1);
                 break;
-            case Action::Back: leave_options(); break;
+            case Action::Back: leave_list(); break;
             default: break;
         }
         return true;
@@ -711,7 +1009,7 @@ struct Big {
         SDL_RenderClear(ren);
         background();
         if (screen == Title) draw_title();
-        else draw_options();
+        else draw_list();
         // Fade in after a screen change; fade out when starting.
         float fade = 1.0f - std::min(1.0f, (SDL_GetTicks() - fade_start) / 250.0f);
         if (starting) fade = std::min(1.0f, (SDL_GetTicks() - start_at) / 700.0f);
@@ -750,6 +1048,8 @@ int run_big(const Install& in) {
     }
     const char* shot = std::getenv("DAYTONA_LAUNCHER_SHOT");
     const SDL_WindowFlags flags = shot != nullptr ? 0 : SDL_WINDOW_FULLSCREEN;
+    int win_w = 1280, win_h = 800;  // testing: DAYTONA_LAUNCHER_SIZE=1920x1080 (windowed)
+    if (const char* size = std::getenv("DAYTONA_LAUNCHER_SIZE")) std::sscanf(size, "%dx%d", &win_w, &win_h);
     Big big;
     big.eds = find_editions(in);
     if (big.eds.empty()) {
@@ -758,14 +1058,25 @@ int run_big(const Install& in) {
         big.ed = last_edition(big.eds);
         big.in = &big.eds[big.ed];
     }
-    big.win = SDL_CreateWindow("Daytona Championship USA", static_cast<int>(kW), static_cast<int>(kH), flags);
+    big.win = SDL_CreateWindow("Daytona Championship USA", win_w, win_h, flags | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     ren = big.win != nullptr ? SDL_CreateRenderer(big.win, nullptr) : nullptr;
     if (ren == nullptr) {
         MessageBoxA(nullptr, SDL_GetError(), "Daytona", MB_ICONERROR);
         return 1;
     }
     SDL_SetRenderVSync(ren, 1);
-    SDL_SetRenderLogicalPresentation(ren, static_cast<int>(kW), static_cast<int>(kH), SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    // Fill the display: 800 units high, as wide as its shape allows (at
+    // least the Deck's 1280; narrower screens are letterboxed).
+    int out_w = 1280, out_h = 800;
+    SDL_GetCurrentRenderOutputSize(ren, &out_w, &out_h);
+    if (out_h > 0 && static_cast<float>(out_w) / out_h >= 1280.0f / 800.0f) {
+        kScale = out_h / kH;
+        kW = out_w / kScale;
+        SDL_SetRenderScale(ren, kScale, kScale);
+    } else {
+        kScale = out_w / 1280.0f;
+        SDL_SetRenderLogicalPresentation(ren, 1280, 800, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    }
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     SDL_HideCursor();
 
@@ -777,11 +1088,12 @@ int run_big(const Install& in) {
     small_font.load(body_ttf, 22);
     big.logo = load_logo(big.logo_w, big.logo_h);
     big.opts.load(*big.in);
-    big.rows = build_rows(big.opts);
+    big.load_cfg();
     big.fade_start = SDL_GetTicks();
     if (const char* g = std::getenv("DAYTONA_LAUNCHER_GLYPHS"))  // testing: ps, xbox, nintendo
         big.input.glyphs = g[0] == 'p' ? Glyphs::PlayStation : g[0] == 'x' ? Glyphs::Xbox : Glyphs::Nintendo;
-    if (GetCommandLineW() != nullptr && wcsstr(GetCommandLineW(), L"--screen=options") != nullptr) big.screen = Big::Options;
+    if (GetCommandLineW() != nullptr && wcsstr(GetCommandLineW(), L"--screen=options") != nullptr) big.open_list(Big::Options);
+    if (GetCommandLineW() != nullptr && wcsstr(GetCommandLineW(), L"--screen=controls") != nullptr) big.open_list(Big::Controls);
     if (!big.in->has_game()) big.note = "PUT THE LAUNCHER IN THE FOLDER THAT HOLDS DAYTONA.EXE";
 
     int frames = 0;
@@ -792,6 +1104,7 @@ int run_big(const Install& in) {
             running = big.act(big.input.from_event(e)) && running;
         }
         running = big.act(big.input.poll()) && running;
+        big.capture_poll();
         big.frame();
         if (shot != nullptr && ++frames % 20 == 0) {  // testing: the latest frame
             if (SDL_Surface* s = SDL_RenderReadPixels(ren, nullptr)) {
@@ -808,6 +1121,7 @@ int run_big(const Install& in) {
         }
     }
     if (big.dirty) big.opts.save(*big.in);
+    if (big.cfg_dirty) shim::save_config(big.cfg, big.cfg_path());
     SDL_Quit();
     return 0;
 }

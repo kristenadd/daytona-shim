@@ -202,6 +202,18 @@ daytona-shim/
    2017 folder beside the 2019 one: found, switched, its options (no volume
    rows: 2017's ShellData.ini has no [Audio]), remembered, and the missing
    shim reported.
+   **Any screen size, and CONTROLS:** the layout is 800 units high and as
+   wide as the display (1280 on 16:10, about 1422 on 16:9), drawn at the
+   display's pixels (render scale, fonts baked per scale): 1280x800 on the
+   Deck, 1920x1080 on a 16:9 screen, letterboxed only below 16:10. CONTROLS
+   edits the edition's `shim.ini`: the 15 pad actions, the wheel's axes,
+   scale, pedal rest and 12 buttons, force feedback, reverse, strength and
+   rumble; press-to-map (button edges after a 200 ms settle, axes moved
+   20,000 / 16,000 from where they were; steering takes a stick, the other
+   pad actions a trigger) and a live wheel readout. Checked in the VM at
+   1280x800 and 1920x1080: the screens, keyboard changes saved to
+   `shim.ini`, press-to-map waiting and cancelled. Not checked: mapping with
+   a real pad or wheel.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.
