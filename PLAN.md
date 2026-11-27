@@ -221,6 +221,14 @@ daytona-shim/
    A, `cancel` on B, `002_ACCEL` on START (the fade lasts its 1.4 s).
    The decoder matched a dump of `cancel` at correlation 0.9998;
    `test_sound_bank` checks all four in both editions' banks.
+   **Menu music:** `rom/sound/adx/d1a_bgm01_sel.adx` (45.47 s, stereo
+   44.1 kHz ADX v4). Its header's loop (v4 fields at 0x24: flag, start
+   sample, start byte, end sample, end byte) is sample 7,104 to 2,005,233,
+   the end of the file; the "1:30" of the music dump is a render of the
+   track, one loop and a 10 s fade (0.16 + 2 x 45.31 + 10 = 100.8 s). The
+   launcher streams it (half a second queued, wrapping to the loop start;
+   the seam's step is 3,547 against steps up to 18,734 nearby) at 80% of
+   `[Audio] MusicVolume`, and fades it with the screen on START or exit.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.

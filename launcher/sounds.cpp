@@ -65,6 +65,48 @@ void Sounds::play(Sound s) {
     SDL_PutAudioStreamData(c.stream, c.pcm.data(), static_cast<int>(c.pcm.size() * sizeof(std::int16_t)));
 }
 
+bool Sounds::load_music(const std::wstring& game_dir) {
+    if (device_ == 0 || music_ != nullptr) return false;
+    HANDLE f = CreateFileW((game_dir + L"\\rom\\sound\\adx\\d1a_bgm01_sel.adx").c_str(), GENERIC_READ,
+                           FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER sz{};
+    GetFileSizeEx(f, &sz);
+    std::vector<std::uint8_t> adx(static_cast<std::size_t>(std::min<LONGLONG>(sz.QuadPart, 64ll << 20)));
+    DWORD got = 0;
+    ReadFile(f, adx.data(), static_cast<DWORD>(adx.size()), &got, nullptr);
+    CloseHandle(f);
+    Pcm pcm;
+    if (!decode_adx_file(adx.data(), got, pcm) || pcm.samples.empty()) return false;
+    music_ = new Clip;
+    music_->pcm = std::move(pcm.samples);
+    music_->channels = pcm.channels;
+    music_->rate = pcm.rate;
+    const unsigned frames = static_cast<unsigned>(music_->pcm.size() / pcm.channels);
+    loop_start_ = pcm.loop_end > pcm.loop_start ? pcm.loop_start : 0;
+    loop_end_ = pcm.loop_end > pcm.loop_start ? pcm.loop_end : frames;
+    music_pos_ = 0;
+    const SDL_AudioSpec spec{SDL_AUDIO_S16LE, music_->channels, music_->rate};
+    music_->stream = SDL_CreateAudioStream(&spec, nullptr);
+    if (music_->stream == nullptr) return false;
+    SDL_SetAudioStreamGain(music_->stream, 0);
+    SDL_BindAudioStream(device_, music_->stream);
+    return true;
+}
+
+void Sounds::update_music(float gain) {
+    if (music_ == nullptr || music_->stream == nullptr) return;
+    SDL_SetAudioStreamGain(music_->stream, gain);
+    const int frame_bytes = music_->channels * static_cast<int>(sizeof(std::int16_t));
+    while (SDL_GetAudioStreamQueued(music_->stream) < music_->rate / 2 * frame_bytes) {
+        const unsigned n = std::min(loop_end_ - music_pos_, 4096u);
+        SDL_PutAudioStreamData(music_->stream, music_->pcm.data() + static_cast<std::size_t>(music_pos_) * music_->channels,
+                               static_cast<int>(n) * frame_bytes);
+        music_pos_ += n;
+        if (music_pos_ >= loop_end_) music_pos_ = loop_start_;  // the seamless loop
+    }
+}
+
 float Sounds::seconds(Sound s) const {
     if (clips_ == nullptr) return 0;
     const Clip& c = clips_[static_cast<int>(s)];
@@ -72,6 +114,11 @@ float Sounds::seconds(Sound s) const {
 }
 
 void Sounds::close() {
+    if (music_ != nullptr) {
+        if (music_->stream != nullptr) SDL_DestroyAudioStream(music_->stream);
+        delete music_;
+        music_ = nullptr;
+    }
     if (clips_ != nullptr) {
         for (int i = 0; i < static_cast<int>(Sound::Count); ++i)
             if (clips_[i].stream != nullptr) SDL_DestroyAudioStream(clips_[i].stream);

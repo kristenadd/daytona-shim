@@ -1,7 +1,8 @@
 // The full-screen launcher, for the Steam Deck (and big screens): the title
 // with the edition, START, OPTIONS (one list of the game's settings) and
 // CONTROLS (pad layout, wheel, force feedback: the edition's shim.ini, with
-// press-to-map). Its sounds are the game's own, read from SE.csb. Driven by a
+// press-to-map). Its sounds are the game's own, read from SE.csb, and the
+// select music d1a_bgm01_sel.adx plays in a loop. Driven by a
 // pad (d-pad or left stick; A / Cross selects, B / Circle goes back) or the
 // keyboard (arrows, Enter, Esc or Backspace).
 //
@@ -1051,6 +1052,16 @@ struct Big {
     float launch_ms() const { return std::max(700.0f, sounds.seconds(Sound::Start) * 1000.0f); }
     float exit_ms() const { return std::clamp(sounds.seconds(Sound::Cancel) * 1000.0f, 250.0f, 900.0f); }
 
+    // The menu music: 80% of the game's own music volume, faded out with the
+    // screen when the game starts or the launcher closes.
+    void music() {
+        const float volume = opts.has_audio ? opts.volume[0] / 100.0f : 0.8f;
+        float fade = 1.0f;
+        if (starting) fade = 1.0f - std::min(1.0f, (SDL_GetTicks() - start_at) / launch_ms());
+        if (exiting) fade = 1.0f - std::min(1.0f, (SDL_GetTicks() - exit_at) / exit_ms());
+        sounds.update_music(0.8f * volume * fade);
+    }
+
     void frame() {
         SDL_SetRenderDrawColor(ren, 4, 20, 50, 255);
         SDL_RenderClear(ren);
@@ -1144,8 +1155,11 @@ int run_big(const Install& in) {
     if (GetCommandLineW() != nullptr && wcsstr(GetCommandLineW(), L"--screen=controls") != nullptr) big.open_list(Big::Controls);
     // The sounds come from the game: either edition's bank will do.
     for (const Install& e : big.eds)
-        if (big.sounds.load(e.dir)) break;
-    if (big.eds.empty()) big.sounds.load(in.dir);
+        if (big.sounds.load(e.dir)) {
+            big.sounds.load_music(e.dir);
+            break;
+        }
+    if (big.eds.empty() && big.sounds.load(in.dir)) big.sounds.load_music(in.dir);
     if (!big.in->has_game()) big.note = "PUT THE LAUNCHER IN THE FOLDER THAT HOLDS DAYTONA.EXE";
 
     int frames = 0;
@@ -1157,6 +1171,7 @@ int run_big(const Install& in) {
         }
         running = big.act(big.input.poll()) && running;
         big.capture_poll();
+        big.music();
         big.frame();
         if (shot != nullptr && ++frames % 20 == 0) {  // testing: the latest frame
             if (SDL_Surface* s = SDL_RenderReadPixels(ren, nullptr)) {

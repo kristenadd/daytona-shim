@@ -104,6 +104,16 @@ bool decode_adx(const std::uint8_t* p, std::size_t size, Pcm& out) {
     const int frame = p[5], channels = p[7];
     const std::uint32_t rate = be32(p + 8), total = be32(p + 12);
     const int cutoff = be16(p + 16);
+    // Loop points: version 3 headers keep them at 0x18, version 4 at 0x24
+    // (after 16 bytes of history), each as flag, start sample, start byte,
+    // end sample, end byte.
+    const std::size_t loop_at = p[18] == 4 ? 0x24 : 0x18;
+    out.loop_start = out.loop_end = 0;
+    if ((p[18] == 3 || p[18] == 4) && start >= loop_at + 20 && be32(p + loop_at) != 0) {
+        out.loop_start = be32(p + loop_at + 4);
+        out.loop_end = be32(p + loop_at + 12);
+        if (out.loop_end <= out.loop_start || out.loop_end > total) out.loop_start = out.loop_end = 0;
+    }
     if (frame != 18 || channels < 1 || channels > 2 || rate == 0 || start >= size) return false;
     const double a = std::sqrt(2.0) - std::cos(2.0 * 3.14159265358979323846 * cutoff / rate), b = std::sqrt(2.0) - 1.0;
     const double c = (a - std::sqrt((a + b) * (a - b))) / b;
@@ -133,6 +143,8 @@ bool decode_adx(const std::uint8_t* p, std::size_t size, Pcm& out) {
 }
 
 }  // namespace
+
+bool decode_adx_file(const std::uint8_t* data, std::size_t size, Pcm& out) { return decode_adx(data, size, out); }
 
 bool decode_bank(const std::uint8_t* bank, std::size_t size, Pcm out[kBankSounds]) {
     Utf top;

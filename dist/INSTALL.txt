@@ -42,7 +42,9 @@ top of the screen shows what the game will get from your wheel.
 
 Its sounds are the game's own, read from the game folder
 (rom/sound/csb/SE.csb): the name-entry tick when moving, "decision" and
-"cancel" for A and B, and the engine revving as the game starts.
+"cancel" for A and B, and the engine revving as the game starts. The
+select music (rom/sound/adx/d1a_bgm01_sel.adx) plays in a seamless loop, at
+80% of the game's Music volume setting.
 
 Both editions from one launcher: with the 2017 and 2019 games both
 installed, the edition under the logo is a choice (left / right). START
