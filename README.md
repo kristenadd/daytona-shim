@@ -6,7 +6,7 @@ TeknoParrot or the cabinet's `Shell.exe`. A `dinput8.dll` placed beside the
 game stands in for the IO board, the shell and the cabinet network, and
 reads modern controllers through SDL3.
 
-Status: 2019 runs on the Steam Deck; 2017 is built (the patched `Daytona.exe` restored in memory from `Daytona.exe.original`), not yet run. Esc or Start + Back (held a second) quits. See [PLAN.md](PLAN.md) for the plan and
+Status: 2019 runs on the Steam Deck; so does 2017 (the patched `Daytona.exe` restored in memory from `Daytona.exe.original`). Esc or Start + Back (held a second) quits. See [PLAN.md](PLAN.md) for the plan and
 [NOTES.md](NOTES.md) for what the disassembly shows.
 
 Nothing from the game is in this repository; you need your own install.

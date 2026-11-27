@@ -137,7 +137,8 @@ daytona-shim/
    `Freeplay=0` a coin gives `CREDIT(S) 1`.
 4. **2017:** the edition's addresses, the original executable, and refused
    discovery connects. Done when attract and a race run, with no network
-   error. **Built, not yet run.** The folder's `Daytona.exe` is
+   error. **Runs on the Steam Deck** (the user, with this build: "working
+   perfectly"). The folder's `Daytona.exe` is
    TeknoParrot's (same layout and timestamp; 328,087 bytes differ in 19,232
    runs: the four code edits and its caves in `.text`, and about 360 KB of
    an embedded script library in `.rdata` with its comments rewritten). The

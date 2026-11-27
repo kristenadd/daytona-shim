@@ -1,7 +1,7 @@
 daytona-shim: Daytona Championship USA without TeknoParrot
 ===========================================================
 
-Status: test build. 2019 (New Season Edition) works; 2017 is new and untested.
+Status: test build. 2019 and 2017 run on the Steam Deck.
 
 Install
 -------
@@ -34,6 +34,10 @@ Run on the Steam Deck (Desktop Mode)
      Without this Proton uses its own dinput8 and the shim is not loaded.
    - Start In: the folder holding Daytona.exe (Steam fills it in).
 3. Launch it.
+
+If Steam calls the game "Spacewar" and uses that game's controller layout,
+a steam_appid.txt (app 480, from another package) is in the game folder.
+Delete it (and steam_api.dll or a steam_settings folder if present).
 
 Controls
 --------
