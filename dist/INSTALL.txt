@@ -33,11 +33,21 @@ Deck:
       SDL3.dll
       shim.ini
       INSTALL.txt, licences
-      2019/                          the 2019 download's contents
-        Sega/Daytona/Daytona.exe
+      2019/                          what is inside the 2019 download's
+        Daytona/Daytona.exe          Sega folder
+        GameData/
+        ShellData/
+        shell/ ...
       2017/                          the 2017 download's contents
         Daytona/Daytona.exe
                 Daytona.exe.original (keep it: see below)
+        GameData/
+        ShellData/ ...
+
+Each edition's Daytona folder must stay next to its sibling folders
+(ShellData, GameData and the rest): the game finds its settings relative
+to its own folder. For 2019 the Sega folder itself is only a wrapper, so
+either 2019/Daytona or 2019/Sega/Daytona works.
 
 The launcher finds the editions by itself (it looks four folders down from
 its own). When you START an edition, it copies dinput8.dll, SDL3.dll and
@@ -54,7 +64,7 @@ If the editions are somewhere else, name the folders that hold each
 Daytona.exe in a launcher.ini next to the launcher, relative to it or
 absolute:
     [Editions]
-    2019=2019\Sega\Daytona
+    2019=2019\Daytona
     2017=2017\Daytona
 (Under Proton, Linux paths are on drive Z:. /home/deck/Games is
 Z:\home\deck\Games.)
