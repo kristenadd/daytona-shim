@@ -23,7 +23,14 @@ when you save, and keeps the first version of each as .shim-backup. Close TeknoP
 
 The launcher
 ------------
-DaytonaLauncher.exe sets up the game and starts it:
+On the Steam Deck (and anywhere under Proton) DaytonaLauncher.exe opens full
+screen, made for a controller: the title with START and OPTIONS, and one
+list of the game's settings. D-pad or left stick to move, left / right to
+change a setting, A (Cross on PlayStation) to select, B (Circle) to go back.
+On a keyboard: arrows, Enter, Esc or Backspace. Settings are saved when you
+leave the list. The button prompts follow the pad you use.
+
+On Windows it opens as a window with tabs:
   Game        free play, music / effects / voice volume (ShellData.ini)
   Rules       difficulty, race length, car and track select, tournament
               and the other operator settings (GameSettings.ini)
@@ -32,7 +39,9 @@ DaytonaLauncher.exe sets up the game and starts it:
               pedals, force feedback and rumble strength; a live readout
               shows what the game will get from your wheel
   Play        saves, starts Daytona.exe, and closes when the game does
-"DaytonaLauncher.exe --play" starts the game without the window.
+Options: --play starts the game at once, --big opens the full-screen
+launcher on Windows, --desktop the window under Proton. (Pad and wheel
+controls are set in the window, or in shim.ini.)
 
 Run on Windows
 --------------

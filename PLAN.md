@@ -181,6 +181,18 @@ daytona-shim/
    (Arm, Parallels) VM: every tab draws, Save leaves the files' content
    unchanged when nothing was changed, and Play boots the game with the
    shim (shell link, challenge answers, SDL pad).
+   **The Deck launcher** (`launcher/big.cpp`): under Wine / Proton the
+   launcher opens full screen (borderless, laid out at 1280x800: the Deck's
+   screen 1:1, letterboxed elsewhere), with the logo on a white band, START
+   and OPTIONS, and one list of the Game and Rules settings (headers, ON/OFF,
+   volume bars, rule values with track names spelled out). D-pad, left stick
+   (with repeat), A / Cross select, B / Circle back; arrows, Enter, Esc /
+   Backspace. Prompts follow the pad's labels (SDL's button label for the
+   bottom face button). Saved on leaving the list. The logo is cropped from
+   the recompilation's app icon. Checked in the Windows VM with `--big`: both
+   screens draw, keyboard moves, changes and saves (Music 80 to 70,
+   Difficulty EASY to HARD in the files), the Xbox and PlayStation prompts.
+   Not yet on the Deck.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.

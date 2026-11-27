@@ -6,7 +6,7 @@ TeknoParrot or the cabinet's `Shell.exe`. A `dinput8.dll` placed beside the
 game stands in for the IO board, the shell and the cabinet network, and
 reads modern controllers through SDL3.
 
-Status: 2019 runs on the Steam Deck; so does 2017 (the patched `Daytona.exe` restored in memory from `Daytona.exe.original`). Esc or Start + Back (held a second) quits. New, not yet run: SDL3 pads (PlayStation, Switch), wheels and force feedback. `DaytonaLauncher.exe` (settings and Play) runs in Windows 11. See [PLAN.md](PLAN.md) for the plan and
+Status: 2019 runs on the Steam Deck; so does 2017 (the patched `Daytona.exe` restored in memory from `Daytona.exe.original`). Esc or Start + Back (held a second) quits. New, not yet run: SDL3 pads (PlayStation, Switch), wheels and force feedback. `DaytonaLauncher.exe` (settings and Play) runs in Windows 11; under Proton it is full screen and controller-driven. See [PLAN.md](PLAN.md) for the plan and
 [NOTES.md](NOTES.md) for what the disassembly shows.
 
 Nothing from the game is in this repository; you need your own install.
@@ -17,8 +17,9 @@ Nothing from the game is in this repository; you need your own install.
 tools/package.sh
 ```
 
-This fetches llvm-mingw into `build/toolchains` and SDL3's official MinGW
-release into `build/third_party` the first time, cross-builds the 32-bit
+This fetches llvm-mingw into `build/toolchains`, and SDL3's official MinGW
+release, stb_truetype / stb_image and the launcher's two OFL fonts (Russo
+One, Titillium Web) into `build/third_party`, the first time; cross-builds the 32-bit
 `dinput8.dll` and makes `build/dist/daytona-shim.zip`: the DLL, SDL3.dll and
 its licence, [dist/shim.ini](dist/shim.ini) (settings, all optional) and
 [dist/INSTALL.txt](dist/INSTALL.txt), which says how to install and run it on
@@ -43,7 +44,10 @@ cmake -S . -B build/host -G Ninja && cmake --build build/host && ctest --test-di
 | `shim/edition.cpp` | 2017 / 2019 by PE timestamp, per-edition addresses |
 | `shim/pad.cpp` | input thread: SDL3 pads and wheels (or XInput), rumble and wheel force, quit |
 | `shim/ffb.cpp` | the force-feedback helper's part: the game's commands by `WM_COPYDATA` |
-| `launcher/main.cpp` | `DaytonaLauncher.exe`: ShellData.ini, GameSettings.ini, shim.ini, Play |
+| `launcher/main.cpp` | `DaytonaLauncher.exe`: picks the full-screen launcher under Proton, the window on Windows |
+| `launcher/big.cpp` | full-screen, controller-driven launcher (SDL3 renderer, stb_truetype, `launcher/logo.png`) |
+| `launcher/desktop.cpp` | the Windows window: tabs for settings, controls, wheel |
+| `launcher/settings.cpp` | the install, ShellData.ini / GameSettings.ini, starting the game |
 | `shim/bindings.hpp` | pad buttons and axes by name (shim.ini `[Pad]`) |
 | `shim/config.cpp` | `shim.ini` (sample in `dist/shim.ini`) |
 | `shim/restore.cpp`, `shim/diff_runs.cpp` | 2017: TeknoParrot's edits undone in memory from `Daytona.exe.original` |

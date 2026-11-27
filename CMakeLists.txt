@@ -27,12 +27,21 @@ if(WIN32)
   # Only system DLLs at run time: libc++ and the unwinder linked in.
   target_link_options(dinput8 PRIVATE -static -Wl,--kill-at)
 
-  # The launcher: settings and Play (launcher/main.cpp).
-  add_executable(DaytonaLauncher WIN32 launcher/main.cpp launcher/launcher.rc shim/config.cpp shim/log.cpp)
-  target_include_directories(DaytonaLauncher PRIVATE shim ${SDL3_DIR}/i686-w64-mingw32/include)
+  # The launcher: settings and Play (launcher/).
+  set(ASSETS_DIR ${CMAKE_SOURCE_DIR}/build/third_party/assets)
+  if(NOT EXISTS ${ASSETS_DIR}/stb_truetype.h)
+    message(FATAL_ERROR "launcher assets not found: run tools/fetch_assets.sh")
+  endif()
+  add_executable(DaytonaLauncher WIN32
+    launcher/main.cpp launcher/settings.cpp launcher/desktop.cpp launcher/big.cpp launcher/launcher.rc
+    shim/config.cpp shim/log.cpp)
+  target_include_directories(DaytonaLauncher PRIVATE shim ${SDL3_DIR}/i686-w64-mingw32/include ${ASSETS_DIR})
   target_compile_definitions(DaytonaLauncher PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE _WIN32_WINNT=0x0601)
   target_compile_options(DaytonaLauncher PRIVATE -Wall -Wno-microsoft-exception-spec)
-  target_link_libraries(DaytonaLauncher PRIVATE comctl32)
+  # The resource compiler finds the fonts in the assets folder and the rest in launcher/.
+  set_property(SOURCE launcher/launcher.rc APPEND PROPERTY COMPILE_OPTIONS
+    -I${ASSETS_DIR} -I${CMAKE_SOURCE_DIR}/launcher)
+  target_link_libraries(DaytonaLauncher PRIVATE comctl32 ${SDL3_DIR}/i686-w64-mingw32/lib/libSDL3.dll.a)
   target_link_options(DaytonaLauncher PRIVATE -static -municode)
 else()
   enable_testing()
