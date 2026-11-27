@@ -25,6 +25,11 @@ its licence, [dist/shim.ini](dist/shim.ini) (settings, all optional) and
 [dist/INSTALL.txt](dist/INSTALL.txt), which says how to install and run it on
 Windows and the Steam Deck.
 
+The launcher's logo and icon are generic (a chequered flag). To build with
+your own, make them with `tools/branding/make_branding.py` and copy
+[branding.example.ini](branding.example.ini) to `branding.ini` (not
+committed) pointing at them: [tools/branding/README.md](tools/branding/README.md).
+
 Host-side tests (the challenge answer, DYT framing; the launcher's sound
 bank reader when `DAYTONA_SE_CSB` names a game's `rom/sound/csb/SE.csb`):
 
@@ -46,7 +51,7 @@ cmake -S . -B build/host -G Ninja && cmake --build build/host && ctest --test-di
 | `shim/pad.cpp` | input thread: SDL3 pads and wheels (or XInput), rumble and wheel force, quit |
 | `shim/ffb.cpp` | the force-feedback helper's part: the game's commands by `WM_COPYDATA` |
 | `launcher/main.cpp` | `DaytonaLauncher.exe`: the full-screen launcher, or the window with `--desktop` |
-| `launcher/big.cpp` | full-screen, controller-driven launcher (SDL3 renderer, stb_truetype, `launcher/logo.png`) |
+| `launcher/big.cpp` | full-screen, controller-driven launcher (SDL3 renderer, stb_truetype, the logo from `branding.ini` or `launcher/logo.png`) |
 | `launcher/desktop.cpp` | the window (`--desktop`): tabs for settings, controls, wheel, and the edition |
 | `launcher/sound_bank.cpp`, `launcher/sounds.cpp` | the game's SE.csb (CRI @UTF tables, ADX) decoded, played through SDL3 |
 | `launcher/settings.cpp` | the install, ShellData.ini / GameSettings.ini, starting the game |

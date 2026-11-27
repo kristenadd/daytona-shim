@@ -5,3 +5,5 @@ build/
 *.dll
 *.ini
 !dist/shim.ini
+!branding.example.ini
+/branding.ini

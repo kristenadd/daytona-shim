@@ -1,4 +1,4 @@
-1 ICON "daytona.ico"
+1 ICON "icon.ico"
 1 24 "launcher.manifest"
 // The full-screen launcher's fonts (OFL, fetched by tools/fetch_assets.sh) and logo.
 2 RCDATA "RussoOne-Regular.ttf"

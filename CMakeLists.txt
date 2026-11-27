@@ -38,9 +38,19 @@ if(WIN32)
   target_include_directories(DaytonaLauncher PRIVATE shim ${SDL3_DIR}/i686-w64-mingw32/include ${ASSETS_DIR})
   target_compile_definitions(DaytonaLauncher PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE _WIN32_WINNT=0x0601)
   target_compile_options(DaytonaLauncher PRIVATE -Wall -Wno-microsoft-exception-spec)
-  # The resource compiler finds the fonts in the assets folder and the rest in launcher/.
+  # The logo and icon: the generic ones in launcher/, or branding.ini's
+  # (tools/branding/README.md), copied into the build for the resource compiler.
+  include(cmake/branding.cmake)
+  daytona_branding(logo ${CMAKE_SOURCE_DIR}/launcher/logo.png BRANDING_LOGO)
+  daytona_branding(ico ${CMAKE_SOURCE_DIR}/launcher/icon.ico BRANDING_ICO)
+  configure_file(${BRANDING_LOGO} ${CMAKE_BINARY_DIR}/branding/logo.png COPYONLY)
+  configure_file(${BRANDING_ICO} ${CMAKE_BINARY_DIR}/branding/icon.ico COPYONLY)
+  # The resource compiler finds the fonts in the assets folder, the logo and
+  # icon in build/branding and the rest in launcher/.
   set_property(SOURCE launcher/launcher.rc APPEND PROPERTY COMPILE_OPTIONS
-    -I${ASSETS_DIR} -I${CMAKE_SOURCE_DIR}/launcher)
+    -I${ASSETS_DIR} -I${CMAKE_BINARY_DIR}/branding -I${CMAKE_SOURCE_DIR}/launcher)
+  set_property(SOURCE launcher/launcher.rc APPEND PROPERTY OBJECT_DEPENDS
+    ${CMAKE_BINARY_DIR}/branding/logo.png ${CMAKE_BINARY_DIR}/branding/icon.ico)
   target_link_libraries(DaytonaLauncher PRIVATE comctl32 ${SDL3_DIR}/i686-w64-mingw32/lib/libSDL3.dll.a)
   target_link_options(DaytonaLauncher PRIVATE -static -municode)
 else()
