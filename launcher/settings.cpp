@@ -190,19 +190,26 @@ std::wstring parent(const std::wstring& dir) {
 
 std::vector<Install> find_editions(const Install& here) {
     std::vector<Install> eds;
-    const auto add = [&](const Install& in) {
+    std::vector<bool> named;  // the launcher's own folder or launcher.ini: never replaced
+    // A found copy without ../ShellData (a backup, a loose Daytona.exe)
+    // gives way to a later one with it: the game reads its settings there.
+    const auto add = [&](const Install& in, bool by_name = false) {
         if (in.edition == Edition::Unknown) return;
-        for (const Install& e : eds)
-            if (e.edition == in.edition) return;
+        for (std::size_t i = 0; i < eds.size(); ++i) {
+            if (eds[i].edition != in.edition) continue;
+            if (!named[i] && !exists(eds[i].shelldata) && exists(in.shelldata)) eds[i] = in;
+            return;
+        }
         eds.push_back(in);
+        named.push_back(by_name);
     };
-    add(here);
+    add(here, true);
     for (Edition e : {Edition::Nse2019, Edition::Dcu2017}) {
         // Absolute, or relative to the launcher's folder.
         std::wstring dir = ini_get(launcher_ini(), L"Editions", edition_key(e));
         const bool absolute = dir.size() > 1 && (dir[1] == L':' || dir[0] == L'\\' || dir[0] == L'/');
         if (!dir.empty() && !absolute) dir = exe_dir() + L"\\" + dir;
-        if (!dir.empty()) add(Install::in_dir(full_path(dir)));
+        if (!dir.empty()) add(Install::in_dir(full_path(dir)), true);
     }
     // The launcher's own folder first (each edition in a subfolder of it),
     // then the folders around it.

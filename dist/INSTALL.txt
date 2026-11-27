@@ -50,7 +50,10 @@ to its own folder. For 2019 the Sega folder itself is only a wrapper, so
 either 2019/Daytona or 2019/Sega/Daytona works.
 
 The launcher finds the editions by itself (it looks four folders down from
-its own). When you START an edition, it copies dinput8.dll, SDL3.dll and
+its own). If it finds more than one copy of an edition, it takes the one
+with a ShellData folder beside its Daytona folder; a backup copy that also
+has one can still be picked, so move backups out of the top folder or name
+the right folder in launcher.ini (below). When you START an edition, it copies dinput8.dll, SDL3.dll and
 shim.ini next to that edition's Daytona.exe: the two DLLs whenever its own
 are newer (to update, replace them in the top folder), shim.ini only the
 first time (it holds that edition's controls). With only one edition,
