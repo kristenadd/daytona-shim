@@ -9,28 +9,42 @@ Status: test build. Both editions run on the Steam Deck. Not yet tried on
 real hardware: wheels and force feedback.
 
 
+Quick start
+-----------
+1. Make a folder for the game and unzip everything from this zip into it.
+2. Unpack each edition into a subfolder of it (see 1 below).
+3. Windows: double-click DaytonaLauncher.exe.
+   Steam Deck: add DaytonaLauncher.exe to Steam as a non-Steam game, force
+   Proton Experimental (or 9 or later) under Compatibility, and set its
+   Launch Options to:
+       WINEDLLOVERRIDES="dinput8=n,b" %command%
+   (Without it Proton uses its own dinput8 and the shim is not loaded.)
+
+
 1. Set up the folders
 ---------------------
-Make one folder for the game, put the launcher in it, and unpack each
-edition into a subfolder. The same layout works on Windows and the Deck:
+One folder for the game holds everything from this zip; each edition is
+unpacked into a subfolder of it. The same layout works on Windows and the
+Deck:
 
     Daytona/                         e.g. C:\Games\Daytona on Windows,
       DaytonaLauncher.exe                 /home/deck/Games/Daytona on the Deck
+      dinput8.dll
       SDL3.dll
+      shim.ini
+      INSTALL.txt, licences
       2019/                          the 2019 download's contents
         Sega/Daytona/Daytona.exe
-                     dinput8.dll     \
-                     SDL3.dll         > copied next to Daytona.exe
-                     shim.ini        /
       2017/                          the 2017 download's contents
         Daytona/Daytona.exe
                 Daytona.exe.original (keep it: see below)
-                dinput8.dll, SDL3.dll, shim.ini
 
-So: DaytonaLauncher.exe and SDL3.dll in the top folder, and dinput8.dll,
-SDL3.dll and shim.ini next to each edition's Daytona.exe. The launcher
-finds the editions by itself (it looks four folders down from its own).
-With only one edition, leave out the other subfolder.
+The launcher finds the editions by itself (it looks four folders down from
+its own). When you START an edition, it copies dinput8.dll, SDL3.dll and
+shim.ini next to that edition's Daytona.exe: the two DLLs whenever its own
+are newer (to update, replace them in the top folder), shim.ini only the
+first time (it holds that edition's controls). With only one edition,
+leave out the other subfolder.
 
 The 2017 folder's Daytona.exe is TeknoParrot's patched copy; the original
 is beside it as Daytona.exe.original. Keep both: the shim reads the
@@ -46,10 +60,11 @@ absolute:
 Z:\home\deck\Games.)
 
 Close TeknoParrot first if it is running (its shell takes the same port).
-To remove everything, delete the files listed above. The shim changes
-nothing in the game folders; the launcher changes the game's own settings
-files only when you save, and keeps the first version of each beside it as
-.shim-backup.
+To remove everything, delete the top folder's files and the dinput8.dll,
+SDL3.dll and shim.ini the launcher copied next to each Daytona.exe. The
+shim changes nothing else in the game folders; the launcher changes the
+game's own settings files only when you save, and keeps the first version
+of each beside it as .shim-backup.
 
 
 2. Windows
@@ -58,8 +73,8 @@ Double-click DaytonaLauncher.exe. It opens full screen (see 4) and works
 with a pad or the keyboard. You can make a shortcut to it, or add it to
 Steam as a non-Steam game (no launch options needed on Windows).
 
-You can also still start an edition's Daytona.exe directly; the shim
-loads either way.
+Once the launcher has started an edition, its Daytona.exe can also be
+started directly; the shim beside it loads either way.
 
 
 3. Steam Deck (Desktop Mode)
@@ -70,9 +85,9 @@ loads either way.
 2. In the new entry's Properties:
    - Compatibility: tick "Force the use of a specific Steam Play
      compatibility tool", choose Proton Experimental (or 9 or later).
-   - Launch Options:
+   - Launch Options (needed: without it Proton uses its own dinput8 and
+     the shim is not loaded):
          WINEDLLOVERRIDES="dinput8=n,b" %command%
-     Without this Proton uses its own dinput8 and the shim is not loaded.
      To skip the launcher and start the last edition chosen at once:
          WINEDLLOVERRIDES="dinput8=n,b" %command% --play
 3. Launch it (Game Mode works too).

@@ -238,6 +238,12 @@ daytona-shim/
    edition's files and `shim.ini`; switching saves the one shown). INSTALL.txt
    now starts from one folder layout for Windows and the Deck: the launcher
    and SDL3.dll at the top, each edition in a subfolder.
+   **Installing the shim for you:** START (and `--play`, Play, and saving
+   CONTROLS) copies dinput8.dll and SDL3.dll from the launcher's folder next
+   to the edition's Daytona.exe when missing or older, and shim.ini only
+   when missing. So the zip unpacks into the top folder as it is. Checked in
+   the VM: START on a 2017 folder without them copied all three and started
+   the game.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.

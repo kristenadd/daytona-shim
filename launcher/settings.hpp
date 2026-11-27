@@ -16,6 +16,11 @@ struct Install {
     static Install in_dir(const std::wstring& dir);
     bool has_game() const;
     bool has_shim() const;  // dinput8.dll beside Daytona.exe
+    // Copies the shim from the launcher's folder next to Daytona.exe:
+    // dinput8.dll and SDL3.dll when missing or older than the launcher's,
+    // shim.ini only when missing (it holds the player's controls). True when
+    // the shim is in place afterwards.
+    bool install_shim() const;
     const char* name() const;  // "NEW SEASON EDITION", "2017 EDITION"
 };
 

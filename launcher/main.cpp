@@ -19,8 +19,14 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR cmdline, int show) {
     if (has(L"--play")) {
         // The edition chosen last in the full-screen launcher.
         const std::vector<Install> eds = find_editions(in);
-        if (!eds.empty()) play(eds[last_edition(eds)]);
-        if (in.has_game()) play(in);
+        if (!eds.empty()) {
+            eds[last_edition(eds)].install_shim();
+            play(eds[last_edition(eds)]);
+        }
+        if (in.has_game()) {
+            in.install_shim();
+            play(in);
+        }
     }
     const bool big = !has(L"--desktop");
     return big ? run_big(in) : run_desktop(in, cmdline, show);

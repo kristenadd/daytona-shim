@@ -360,6 +360,7 @@ bool save() {
     }
     bool ok = app.opts.save(*app.install);
     app.cfg = config_from_page();
+    app.install->install_shim();
     ok = shim::save_config(app.cfg, ansi(app.dir + L"\\shim.ini")) && ok;
     set_status(ok ? L"Saved." : L"Some settings could not be written (is the folder read-only?).");
     return ok;
@@ -370,8 +371,8 @@ void start_game() {
         MessageBoxW(app.wnd, L"Daytona.exe is not beside the launcher.", L"Daytona", MB_ICONERROR);
         return;
     }
-    if (!app.install->has_shim()) {
-        MessageBoxW(app.wnd, L"Copy dinput8.dll, SDL3.dll and shim.ini next to this edition's Daytona.exe first.",
+    if (!app.install->install_shim()) {
+        MessageBoxW(app.wnd, L"Put dinput8.dll, SDL3.dll and shim.ini next to the launcher (or this edition's Daytona.exe).",
                     L"Daytona", MB_ICONERROR);
         return;
     }
@@ -562,7 +563,8 @@ void build_pages() {
     show_page(static_cast<int>(SendMessageW(app.tab, TCM_GETCURSEL, 0, 0)));
     if (app.play_button != nullptr) EnableWindow(app.play_button, app.install->has_game());
     if (!app.install->has_game()) set_status(L"No Daytona.exe found: put the launcher beside it, or above both editions.");
-    else if (!app.install->has_shim()) set_status(L"Copy dinput8.dll, SDL3.dll and shim.ini next to this edition's Daytona.exe.");
+    else if (!app.install->has_shim())
+        set_status(L"Play copies dinput8.dll, SDL3.dll and shim.ini from the launcher's folder to this edition.");
     else if (!exists(app.shelldata)) set_status(L"ShellData.ini was not found next to the game's folder.");
     else set_status(L"");
 }

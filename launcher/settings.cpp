@@ -127,6 +127,31 @@ Install Install::in_dir(const std::wstring& dir) {
 bool Install::has_game() const { return exists(game_exe); }
 bool Install::has_shim() const { return exists(dir + L"\\dinput8.dll"); }
 
+namespace {
+
+// True when `src` is there and `dst` is missing or older.
+bool newer(const std::wstring& src, const std::wstring& dst) {
+    WIN32_FILE_ATTRIBUTE_DATA a{}, b{};
+    if (!GetFileAttributesExW(src.c_str(), GetFileExInfoStandard, &a)) return false;
+    if (!GetFileAttributesExW(dst.c_str(), GetFileExInfoStandard, &b)) return true;
+    return CompareFileTime(&a.ftLastWriteTime, &b.ftLastWriteTime) > 0 || a.nFileSizeLow != b.nFileSizeLow;
+}
+
+}  // namespace
+
+bool Install::install_shim() const {
+    const std::wstring from = exe_dir();
+    if (_wcsicmp(full_path(from).c_str(), full_path(dir).c_str()) != 0) {
+        for (const wchar_t* f : {L"dinput8.dll", L"SDL3.dll"}) {
+            const std::wstring src = from + L"\\" + f, dst = dir + L"\\" + f;
+            if (newer(src, dst)) CopyFileW(src.c_str(), dst.c_str(), FALSE);
+        }
+        const std::wstring ini = dir + L"\\shim.ini";
+        if (!exists(ini)) CopyFileW((from + L"\\shim.ini").c_str(), ini.c_str(), TRUE);
+    }
+    return has_shim();
+}
+
 const char* Install::name() const {
     switch (edition) {
         case Edition::Nse2019: return "NEW SEASON EDITION";

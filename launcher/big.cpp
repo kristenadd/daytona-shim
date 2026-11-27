@@ -947,7 +947,10 @@ struct Big {
     void leave_list() {
         bool ok = true, saved = dirty || cfg_dirty;
         if (dirty) ok = opts.save(*in) && ok;
-        if (cfg_dirty) ok = shim::save_config(cfg, cfg_path()) && ok;
+        if (cfg_dirty) {
+            in->install_shim();  // the commented shim.ini first, if the edition has none
+            ok = shim::save_config(cfg, cfg_path()) && ok;
+        }
         dirty = cfg_dirty = false;
         note = !saved ? "" : ok ? "SETTINGS SAVED" : "SETTINGS COULD NOT BE SAVED";
         title_sel = screen == Options ? 2 : 3;
@@ -995,8 +998,8 @@ struct Big {
                             sounds.play(Sound::Cancel);
                             break;
                         }
-                        if (!in->has_shim()) {
-                            note = "COPY DINPUT8.DLL, SDL3.DLL AND SHIM.INI NEXT TO THIS EDITION'S DAYTONA.EXE TOO";
+                        if (!in->install_shim()) {
+                            note = "PUT DINPUT8.DLL, SDL3.DLL AND SHIM.INI NEXT TO THE LAUNCHER (OR THIS EDITION'S DAYTONA.EXE)";
                             sounds.play(Sound::Cancel);
                             break;
                         }
