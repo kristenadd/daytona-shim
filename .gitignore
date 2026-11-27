@@ -4,3 +4,4 @@ build/
 *.exe
 *.dll
 *.ini
+!dist/shim.ini

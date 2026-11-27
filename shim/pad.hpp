@@ -1,6 +1,6 @@
 #pragma once
-// The player's controls, as the IO board sees them. Read on demand by the
-// board's GetDeviceState (once a frame).
+// The player's controls, as the IO board sees them. The input thread keeps
+// them current; the board's GetDeviceState reads them once a frame.
 #include <cstdint>
 
 namespace shim {
@@ -18,10 +18,11 @@ struct Controls {
     };
 };
 
-void pad_init();
+// The input thread: pads and wheels (SDL3, or XInput without it), force
+// feedback to them, and quitting on Esc (the game's window in front) or
+// Start + Back held for a second.
+void start_input();
+// The latest controls, with the keyboard added while the game is in front.
 Controls read_controls();
-// A thread that ends the game on Esc (its window in front) or Start + Back
-// held for a second on any pad.
-void start_quit_watch();
 
 }  // namespace shim

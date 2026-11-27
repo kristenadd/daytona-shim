@@ -185,6 +185,30 @@ Otherwise each attempt waits for a TCP timeout on a real network.
 The game reads it as `../ShellData/ShellData.ini`, relative to its working
 directory, so the launcher must start `Daytona.exe` in its own folder.
 
+## 6. Force feedback (2019; 2017 the same protocol)
+
+- The game computes it (`soc::ForceFeedbackImpl`, `src\soc\forcefeedback.cpp`,
+  `config.ini [Wheel]`). The object is created at `0x528350` (pointer
+  `[0x15FF1E8]`) and its per-frame update is `0x5284B0`, which turns the
+  Daytona ROM's drive-board command (`+0xB`, set by `0x529060` from the
+  Model 2 emulation at `0x5E3262`) into this PC motor's commands.
+- `0x5283E0` starts `c:\sega\shell\InpWrapper.exe -h=%08x -p=%08x`: `-h` is
+  the game's window, `-p` the `ParallelPort` from `../shell/Game.ini`
+  `[Configuration]` (default 0x378). A failed start is ignored.
+- The helper registers by sending the game's window `WM_COPYDATA` with
+  `dwData` 3 and its own window handle as a DWORD. The handler (`0x4DC9D0`,
+  a virtual method reached through the window's original procedure; 2017
+  `0x4DCD98`) stores it at `+4` (`0x529090`), sends a 0 and calls
+  `ReplyMessage(1)`.
+- Commands: `0x528DE0` (2017 `0x529570`) sends `WM_COPYDATA` to `+4` with
+  `dwData` 0x20 and one byte, through `SendMessageTimeout` (10 s), and
+  repeats while the reply is 2. Bytes: 0 off, 0x01-0x0F a force of 1-15
+  one way, 0x11-0x1F the other way (`0x528EF0`). Grass, kerbs and
+  scraping are fast alternations (`0x5282C0`, `PERIOD*`, `GRASS_*`,
+  `GARIGARI_*`). Which sign is left is not yet checked on a wheel.
+- `+8` enables it (`0x528E90`: 1 in a race at `0x4E59F3`, 0 at `0x4E4E44`).
+- TeknoParrot's 2017 edit at `0x52958F` is the start of this send function.
+
 ## Still open (phase 2, on the Deck or a Windows PC)
 
 - **The window:** the game's `config.ini` has no resolution keys. Check

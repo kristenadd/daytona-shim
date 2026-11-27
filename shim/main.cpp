@@ -18,7 +18,23 @@ extern "C" HRESULT WINAPI DirectInput8Create(HINSTANCE, DWORD version, REFIID ri
 }
 
 extern "C" HRESULT WINAPI DllCanUnloadNow() { return S_FALSE; }
-extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID, REFIID, LPVOID* out) {
+// COM's DirectInput (CoCreateInstance, as SDL uses for wheels) may find this
+// DLL by name: hand it the system's.
+extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID clsid, REFIID iid, LPVOID* out) {
+    using get_class_object_fn = HRESULT(WINAPI*)(REFCLSID, REFIID, LPVOID*);
+    static get_class_object_fn system = [] {
+        wchar_t path[MAX_PATH];
+        const UINT n = GetSystemDirectoryW(path, MAX_PATH);
+        if (n == 0 || n + 13 >= MAX_PATH) return static_cast<get_class_object_fn>(nullptr);
+        wcscat(path, L"\\dinput8.dll");
+        HMODULE m = LoadLibraryW(path);
+        HMODULE self = nullptr;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           reinterpret_cast<LPCWSTR>(&DirectInput8Create), &self);
+        if (m == nullptr || m == self) return static_cast<get_class_object_fn>(nullptr);
+        return reinterpret_cast<get_class_object_fn>(GetProcAddress(m, "DllGetClassObject"));
+    }();
+    if (system != nullptr) return system(clsid, iid, out);
     if (out != nullptr) *out = nullptr;
     return CLASS_E_CLASSNOTAVAILABLE;
 }
@@ -31,7 +47,7 @@ BOOL WINAPI DllMain(HINSTANCE self, DWORD reason, LPVOID) {
     shim::log_open();
     const shim::Edition edition = shim::detect_edition();
     shim::logf("daytona-shim: Daytona.exe edition %s", shim::edition_name(edition));
-    shim::start_quit_watch();
+    shim::start_input();
     if (edition == shim::Edition::Unknown) {
         shim::logf("not a known Daytona.exe (2017 or 2019 PC release); only DirectInput is provided");
         return TRUE;

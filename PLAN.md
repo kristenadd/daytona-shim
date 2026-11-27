@@ -155,6 +155,20 @@ daytona-shim/
    Quitting: Esc (the game's window in front) or Start + Back held for a
    second ends the process (`TerminateProcess`; the game has no exit of its
    own).
+   **SDL3, wheels, force feedback: built, not yet run.** SDL3 (the official
+   3.4.20 MinGW release, `tools/fetch_sdl.sh`) is loaded at run time from
+   the game folder; without it the shim uses XInput as before. An input
+   thread (250 Hz) merges every pad and wheel. Steam's controllers stay on
+   Steam Input (SDL's hidapi Steam drivers are off). Wheels: SDL's wheel
+   type or `[Wheel] Name`, raw axes and buttons from `shim.ini`, pedal rest
+   from SDL's initial axis state. COM's DirectInput (which SDL uses for
+   wheels) can find our `dinput8.dll` by name, so `DllGetClassObject`
+   forwards to the system one.
+   Force feedback (NOTES.md section 6): the shim plays `InpWrapper.exe`. Its
+   `CreateProcessA` hook reads the game's window from `-h=`, registers a
+   message-only window with the game, and receives the commands: wheels get
+   a constant force on the steering axis, pads a rumble (alternations on the
+   large motor, 20% of the steady pull on the small one).
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.

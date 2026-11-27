@@ -17,8 +17,10 @@
 #include <windows.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
+#include "ffb.hpp"
 #include "iat.hpp"
 #include "log.hpp"
 
@@ -99,6 +101,18 @@ DWORD WINAPI hook_xinput_get_state(DWORD, void*) { return ERROR_DEVICE_NOT_CONNE
 
 BOOL WINAPI hook_create_process(LPCSTR app, LPSTR cmd, LPSECURITY_ATTRIBUTES pa, LPSECURITY_ATTRIBUTES ta, BOOL inherit,
                                 DWORD flags, LPVOID env, LPCSTR dir, LPSTARTUPINFOA si, LPPROCESS_INFORMATION pi) {
+    // The force-feedback helper (0x5283E0): "-h=<game window> -p=<port>". The
+    // shim takes its place; the game handles the failed start.
+    const std::size_t len = app != nullptr ? std::strlen(app) : 0;
+    if (len >= 14 && _stricmp(app + len - 14, "InpWrapper.exe") == 0) {
+        const char* h = cmd != nullptr ? std::strstr(cmd, "-h=") : nullptr;
+        const HWND game = h != nullptr ? reinterpret_cast<HWND>(static_cast<UINT_PTR>(std::strtoul(h + 3, nullptr, 16)))
+                                       : nullptr;
+        logf("CreateProcessA(%s, %s): the shim is the force-feedback helper", app, cmd ? cmd : "null");
+        if (game != nullptr) ffb_start(game);
+        SetLastError(ERROR_FILE_NOT_FOUND);
+        return FALSE;
+    }
     const BOOL r = real_create_process(app, cmd, pa, ta, inherit, flags, env, dir, si, pi);
     logf("CreateProcessA(%s, %s): %s (%lu)", app ? app : "null", cmd ? cmd : "null", r ? "started" : "failed",
          r ? 0ul : static_cast<unsigned long>(GetLastError()));

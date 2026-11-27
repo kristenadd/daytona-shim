@@ -1,11 +1,13 @@
 daytona-shim: Daytona Championship USA without TeknoParrot
 ===========================================================
 
-Status: test build. 2019 and 2017 run on the Steam Deck.
+Status: test build. 2019 and 2017 run on the Steam Deck. New and untested:
+PlayStation / Switch pads, wheels and force feedback (SDL3).
 
 Install
 -------
-Copy dinput8.dll into the folder that holds Daytona.exe:
+Copy dinput8.dll, SDL3.dll and shim.ini into the folder that holds
+Daytona.exe:
 
     ...\Sega\Daytona\dinput8.dll      (2019)
     ...\Daytona\dinput8.dll            (2017)
@@ -15,8 +17,8 @@ that folder is TeknoParrot's patched copy; the shim reads the original and
 puts its code back in memory, so you start Daytona.exe as usual. Neither
 file is changed.
 
-Nothing else in the game folder is changed. To remove it, delete the
-dinput8.dll again. Close TeknoParrot first (its shell takes the same port).
+Nothing else in the game folder is changed. To remove it, delete those
+three files again. Close TeknoParrot first (its shell takes the same port).
 
 Run on Windows
 --------------
@@ -41,14 +43,29 @@ Delete it (and steam_api.dll or a steam_settings folder if present).
 
 Controls
 --------
-Controller (Xbox layout; the Deck's own controls work through Steam Input):
+Controllers: Xbox, PlayStation, Switch and other pads (through SDL3.dll),
+and the Deck's own controls through Steam Input. By button position:
   Steering        left stick
   Gas / brake     right / left trigger
-  Start           Start (Menu)
-  Coin            Back (View)
+  Start           Start / Options / +
+  Coin            Back / Share / -
   Shift up/down   right / left bumper
-  Views 1-4       Y / X / B / A
+  Views 1-4       top / left / right / bottom button (Xbox: Y / X / B / A)
   Quit            hold Start + Back for a second
+Several controllers at once are combined.
+
+Steering wheels (Windows): Logitech, Thrustmaster, Fanatec and other wheels
+SDL knows are used by themselves. The defaults suit a Logitech G29 / G923:
+paddles shift, Options is Start, Share is Coin, the H-shifter's gears 1-4.
+For another wheel, shim.log lists "axis N moved" and "button N pressed" as
+you use it; put those numbers in shim.ini [Wheel]. If the wheel turns too
+far for full lock, set about 270 degrees in its software or raise
+SteeringScale.
+
+Force feedback: the game's own force feedback (what drove the cabinet's
+motor) goes to the wheel as a constant force, and to pads as rumble. Set
+the strength, or turn it off, in shim.ini [ForceFeedback]; Invert=1 if the
+wheel pulls the wrong way.
 Keyboard: arrows (steer, gas, brake), Enter start, 5 coin, A / Z shift,
 F1-F4 views, Esc quits.
 
@@ -62,6 +79,12 @@ what happened. A good first run shows, in this order:
   shell: listening on 127.0.0.1:18888
   shell: game connected
   shell: <- 0x.. / shell: -> 0x2C (the greeting)
+  pad: SDL 3.x.x, then "pad: <name> connected as a pad / wheel"
+  CreateProcessA(c:\sega\shell\InpWrapper.exe ...): the shim is the force-feedback helper
+  ffb: registered with the game window: yes
   (2017) restore: ... ranges (... bytes) put back from Daytona.exe.original, 0 skipped
   dinput: CreateDevice(SEGA IO Controller)
   shell: <- 0x2A (... challenge) every 10 s, each answered with -> 0x2E
+
+If SDL causes trouble (a pad missing or doubled), SDL=0 in shim.ini goes
+back to XInput pads only.
