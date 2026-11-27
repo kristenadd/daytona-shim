@@ -69,6 +69,9 @@ extern const wchar_t* const kVolumeKeys[3];
 // Starts Daytona.exe in its folder and waits for it (so Steam sees one
 // session), then ends the launcher.
 [[noreturn]] void play(const Install& in);
+// Starts Daytona.exe in its folder and returns when it ends (false when it
+// did not start); `idle` runs every 100 ms meanwhile.
+bool run_game(const Install& in, void (*idle)(void*), void* ctx);
 
 // The full-screen, controller-driven launcher (Steam Deck): true when running
 // under Wine / Proton.

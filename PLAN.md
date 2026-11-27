@@ -244,6 +244,12 @@ daytona-shim/
    when missing. So the zip unpacks into the top folder as it is. Checked in
    the VM: START on a 2017 folder without them copied all three and started
    the game.
+   **Back to the launcher:** START hides the launcher, closes its audio
+   device and controllers (so the game has them alone), and waits for the
+   game (`run_game`); when it ends, the launcher shows again on the title
+   with the music from the top, ignoring input for 0.6 s. Steam sees one
+   session until B on the title. Checked in the VM: hidden while the game
+   ran, back on the title after it ended.
 6. **Polish:** a settings screen or `.ini` for the launcher (edition, free
    play, button layout), rumble from the game's force-feedback request, and
    a release zip.

@@ -274,6 +274,19 @@ void play(const Install& in) {
     ExitProcess(0);
 }
 
+bool run_game(const Install& in, void (*idle)(void*), void* ctx) {
+    STARTUPINFOW si{sizeof si};
+    PROCESS_INFORMATION pi{};
+    std::wstring cmd = L"\"" + in.game_exe + L"\"";
+    if (!CreateProcessW(in.game_exe.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr, in.dir.c_str(), &si, &pi))
+        return false;
+    CloseHandle(pi.hThread);
+    while (WaitForSingleObject(pi.hProcess, 100) == WAIT_TIMEOUT)
+        if (idle != nullptr) idle(ctx);
+    CloseHandle(pi.hProcess);
+    return true;
+}
+
 bool running_under_wine() {
     HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
     return ntdll != nullptr && GetProcAddress(ntdll, "wine_get_version") != nullptr;

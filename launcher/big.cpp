@@ -1065,6 +1065,30 @@ struct Big {
         sounds.update_music(0.8f * volume * fade);
     }
 
+    // START: the launcher steps aside (window hidden, sound and controllers
+    // released) while the game runs, and comes back to the title after.
+    void run() {
+        sounds.suspend();
+        for (SDL_Joystick* j : input.sticks) SDL_CloseJoystick(j);
+        input.sticks.clear();
+        SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
+        SDL_HideWindow(win);
+        remember_edition(*in);
+        const bool ran = run_game(*in, [](void*) { SDL_PumpEvents(); }, nullptr);
+        SDL_FlushEvents(SDL_EVENT_FIRST, SDL_EVENT_LAST);
+        SDL_InitSubSystem(SDL_INIT_GAMEPAD);
+        SDL_ShowWindow(win);
+        SDL_RaiseWindow(win);
+        sounds.resume();
+        starting = false;
+        screen = Title;
+        title_sel = 1;
+        input.stick_dir = 0;
+        quiet_until = SDL_GetTicks() + 600;  // the button that quit the game is not a menu press
+        fade_start = SDL_GetTicks();
+        note = ran ? "" : "THE GAME DID NOT START";
+    }
+
     void frame() {
         SDL_SetRenderDrawColor(ren, 4, 20, 50, 255);
         SDL_RenderClear(ren);
@@ -1184,13 +1208,7 @@ int run_big(const Install& in) {
         }
         SDL_RenderPresent(ren);
         if (big.exiting && SDL_GetTicks() - big.exit_at > big.exit_ms()) running = false;
-        if (big.starting && SDL_GetTicks() - big.start_at > big.launch_ms() + 50) {
-            big.sounds.close();
-            SDL_DestroyRenderer(ren);
-            SDL_DestroyWindow(big.win);
-            SDL_Quit();
-            play(*big.in);
-        }
+        if (big.starting && SDL_GetTicks() - big.start_at > big.launch_ms() + 50) big.run();
     }
     if (big.dirty) big.opts.save(*big.in);
     if (big.cfg_dirty) shim::save_config(big.cfg, big.cfg_path());

@@ -122,10 +122,14 @@ Deck, 1920x1080 or anything else on a PC):
             wheel or pedal, you want; Esc on a keyboard cancels. The top of
             the screen shows what the game will get from your wheel.
 
+  START     runs the edition shown. The launcher steps aside while you
+            play and comes back when the game ends (Esc, or hold Start +
+            Back), so you can change settings or switch editions. B on the
+            title screen closes it.
+
   Move: d-pad or left stick (arrows on a keyboard); change a setting:
   left / right; select: A (Cross on PlayStation, Enter); back: B (Circle,
-  Esc or Backspace). B on the title screen closes the launcher. Settings
-  are saved when you leave a list. The button prompts follow the pad you
+  Esc or Backspace). Settings are saved when you leave a list. The button prompts follow the pad you
   use.
 
 Its sounds and music are the game's own, read from the game folder: the
