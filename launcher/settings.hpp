@@ -19,10 +19,11 @@ struct Install {
     const char* name() const;  // "NEW SEASON EDITION", "2017 EDITION"
 };
 
-// Every edition the launcher can start: its own folder's, then the other
-// edition, from launcher.ini [Editions] 2017= / 2019= (a folder holding
-// Daytona.exe), or else found by looking around the launcher's folder (up to
-// three folders up, four down). At most one per edition.
+// Every edition the launcher can start: its own folder's, then
+// launcher.ini [Editions] 2017= / 2019= (a folder holding Daytona.exe,
+// absolute or relative to the launcher), then any found in the launcher's own
+// folder (four folders down), then around it (up to three folders up, four
+// down). At most one per edition.
 std::vector<Install> find_editions(const Install& here);
 // launcher.ini [Launcher] Edition: the one chosen last (an index into the list).
 int last_edition(const std::vector<Install>& eds);

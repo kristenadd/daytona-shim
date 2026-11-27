@@ -201,7 +201,10 @@ daytona-shim/
    without `dinput8.dll` beside it is not started. Checked in the VM with a
    2017 folder beside the 2019 one: found, switched, its options (no volume
    rows: 2017's ShellData.ini has no [Audio]), remembered, and the missing
-   shim reported.
+   shim reported. Then: the launcher's own folder is searched first (a top
+   folder with each edition in a subfolder), and launcher.ini paths may be
+   relative to the launcher; checked in the VM with 2019/ and 2017/
+   subfolders.
    **Any screen size, and CONTROLS:** the layout is 800 units high and as
    wide as the display (1280 on 16:10, about 1422 on 16:9), drawn at the
    display's pixels (render scale, fonts baked per scale): 1280x800 on the
@@ -217,7 +220,7 @@ daytona-shim/
    **Sounds:** the game's own, from the player's `rom/sound/csb/SE.csb`:
    the top @UTF table's SOUND_ELEMENT table, rows `Synth/<name>_wav|aif`,
    each an AAX table whose first segment is standard ADX (type 3, v4,
-   unencrypted). `161_NAME_ENTRY_THREE` on moves and changes, `decision` on
+   unencrypted). `160_NAME_PANEL_SOUND` on moves and changes, `decision` on
    A, `cancel` on B, `002_ACCEL` on START (the fade lasts its 1.4 s).
    The decoder matched a dump of `cancel` at correlation 0.9998;
    `test_sound_bank` checks all four in both editions' banks.

@@ -41,23 +41,35 @@ trigger, wheel or pedal, that you want (Esc on the keyboard cancels). The
 top of the screen shows what the game will get from your wheel.
 
 Its sounds are the game's own, read from the game folder
-(rom/sound/csb/SE.csb): the name-entry tick when moving, "decision" and
+(rom/sound/csb/SE.csb): the name panel sound when moving, "decision" and
 "cancel" for A and B, and the engine revving as the game starts. The
 select music (rom/sound/adx/d1a_bgm01_sel.adx) plays in a seamless loop, at
 80% of the game's Music volume setting.
 
 Both editions from one launcher: with the 2017 and 2019 games both
 installed, the edition under the logo is a choice (left / right). START
-runs that edition and OPTIONS edits its settings; the launcher remembers
-the last one. Copy dinput8.dll, SDL3.dll and shim.ini next to each
-edition's Daytona.exe; one launcher (and one Steam shortcut) is enough.
-The launcher finds the other edition in the folders around its own (for
-example Games/Daytona 2019/Sega/Daytona and Games/Daytona 2017/Daytona).
-If it does not, name the folders that hold each Daytona.exe in a
-launcher.ini beside the launcher:
+runs that edition and OPTIONS / CONTROLS edit its settings; the launcher
+remembers the last one. The simplest layout is one folder holding the
+launcher, with each edition unpacked in a subfolder of it:
+
+    Daytona/                    (for example /home/deck/Games/Daytona)
+      DaytonaLauncher.exe
+      SDL3.dll
+      2019/                     the 2019 download's contents
+        Sega/Daytona/Daytona.exe   + dinput8.dll, SDL3.dll, shim.ini
+      2017/                     the 2017 download's contents
+        Daytona/Daytona.exe        + dinput8.dll, SDL3.dll, shim.ini
+                                   (and Daytona.exe.original)
+
+The launcher finds both by itself (it looks four folders down from its own,
+then around it); point the Steam shortcut at DaytonaLauncher.exe. If they
+are somewhere else, name the folders that hold each Daytona.exe in a
+launcher.ini beside the launcher, relative to it or absolute:
     [Editions]
-    2017=Z:\home\deck\Games\Daytona 2017\Daytona
-    2019=Z:\home\deck\Games\Daytona 2019\Sega\Daytona
+    2017=2017\Daytona
+    2019=2019\Sega\Daytona
+Under Proton, Linux paths are on drive Z: (/home/deck/Games is
+Z:\home\deck\Games).
 
 On Windows it opens as a window with tabs:
   Game        free play, music / effects / voice volume (ShellData.ini)

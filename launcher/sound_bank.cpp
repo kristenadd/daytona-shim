@@ -9,7 +9,7 @@ namespace launcher {
 namespace {
 
 // The bank's sound elements, by name (Synth/<name>_wav or _aif).
-const char* const kNames[] = {"161_NAME_ENTRY_THREE", "decision", "cancel", "002_ACCEL"};
+const char* const kNames[] = {"160_NAME_PANEL_SOUND", "decision", "cancel", "002_ACCEL"};
 
 std::uint32_t be32(const std::uint8_t* p) { return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]; }
 std::uint16_t be16(const std::uint8_t* p) { return static_cast<std::uint16_t>((p[0] << 8) | p[1]); }

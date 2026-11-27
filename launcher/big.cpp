@@ -442,7 +442,7 @@ struct Big {
     float logo_w = 0, logo_h = 0;
     GameOptions opts;
     Input input;
-    Sounds sounds;  // the game's own: decision, cancel, the name-entry tick, the engine
+    Sounds sounds;  // the game's own: decision, cancel, the name panel sound, the engine
     bool exiting = false;
     Uint64 exit_at = 0;
     enum Screen { Title, Options, Controls } screen = Title;

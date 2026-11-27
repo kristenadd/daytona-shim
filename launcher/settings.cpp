@@ -167,11 +167,19 @@ std::vector<Install> find_editions(const Install& here) {
     };
     add(here);
     for (Edition e : {Edition::Nse2019, Edition::Dcu2017}) {
-        const std::wstring dir = ini_get(launcher_ini(), L"Editions", edition_key(e));
+        // Absolute, or relative to the launcher's folder.
+        std::wstring dir = ini_get(launcher_ini(), L"Editions", edition_key(e));
+        const bool absolute = dir.size() > 1 && (dir[1] == L':' || dir[0] == L'\\' || dir[0] == L'/');
+        if (!dir.empty() && !absolute) dir = exe_dir() + L"\\" + dir;
         if (!dir.empty()) add(Install::in_dir(full_path(dir)));
     }
-    std::wstring base = here.dir;
+    // The launcher's own folder first (each edition in a subfolder of it),
+    // then the folders around it.
     int budget = 4000;  // folders looked at, in all
+    std::vector<std::wstring> below;
+    search(exe_dir(), 4, budget, below);
+    for (const std::wstring& dir : below) add(Install::in_dir(dir));
+    std::wstring base = here.dir;
     for (int up = 0; up < 3 && eds.size() < 2; ++up) {
         base = parent(base);
         std::vector<std::wstring> found;

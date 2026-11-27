@@ -18,7 +18,7 @@ struct Pcm {
 // A standalone .adx file (the music), with its loop points.
 bool decode_adx_file(const std::uint8_t* data, std::size_t size, Pcm& out);
 
-// In the order of Sound: the name-entry tick, decision, cancel, the engine.
+// In the order of Sound: the name panel sound, decision, cancel, the engine.
 constexpr int kBankSounds = 4;
 // Fills `out` (kBankSounds entries); false when the bank cannot be read.
 bool decode_bank(const std::uint8_t* bank, std::size_t size, Pcm out[kBankSounds]);

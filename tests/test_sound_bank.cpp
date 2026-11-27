@@ -29,7 +29,7 @@ int main() {
         const char* name;
         std::size_t frames;
         int channels;
-    } want[launcher::kBankSounds] = {{"161_NAME_ENTRY_THREE", 37029, 2}, {"decision", 56607, 2}, {"cancel", 40350, 2},
+    } want[launcher::kBankSounds] = {{"160_NAME_PANEL_SOUND", 29229, 2}, {"decision", 56607, 2}, {"cancel", 40350, 2},
                                       {"002_ACCEL", 61109, 1}};
     int failures = 0;
     for (int i = 0; i < launcher::kBankSounds; ++i) {
