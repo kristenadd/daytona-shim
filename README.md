@@ -59,3 +59,11 @@ cmake -S . -B build/host -G Ninja && cmake --build build/host && ctest --test-di
 | `shim/config.cpp` | `shim.ini` (sample in `dist/shim.ini`) |
 | `shim/restore.cpp`, `shim/diff_runs.cpp` | 2017: TeknoParrot's edits undone in memory from `Daytona.exe.original` |
 | `shim.log` | written beside `Daytona.exe` at run time |
+
+## License
+
+The code in this repository is under the [MIT License](LICENSE). What the build
+fetches keeps its own licence: SDL3 (zlib), stb (MIT or public domain) and the
+launcher's fonts, Russo One and Titillium Web (SIL Open Font License). The
+licence does not cover Daytona Championship USA itself: the game, its code,
+art, sound and names belong to Sega, and you need your own copy to run it.
